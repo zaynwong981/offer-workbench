@@ -1,0 +1,27 @@
+# User data and locally generated files
+/data/
+/exports/
+/dist/
+/config.local.json
+/assets/portrait.jpg
+/界面预览.jpg
+/使用说明.txt
+*.pdf
+*.zip
+*.log
+*.sqlite*
+*.db*
+.env*
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+/.taste-skill/
+/.ui-upgrade-baseline.json
+
+/PROJECT.local.md
+/demo-data*/
+/demo-exports*/
+/backups/
+/local/

@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "verifiedOn": "2026-11-18",
+  "reviewBy": "2026-12-31",
+  "model": "current-parameter-annual-scenario",
+  "scope": "中国大陆居民、单位在职职工的个人扣款情景；不含灵活就业、居民医保、单位成本或历史补差。",
+  "cities": {
+    "shenzhen": {
+      "name": "深圳",
+      "periodLabel": "2026年11月参考口径",
+      "status": "partially-derived",
+      "note": "本预设将核验日的缴费参数固定用于12个月Offer情景估算，不回放2026年内历次调整或补差。实际缴费基数可能按上年度平均工资/单位申报确定，可用工资条金额覆盖。深圳失业及公积金上限48471元为在岗职工年工资193881元折月取整后乘3的参考值，尚未读到2026统一缴费表；高薪边界请按单位实际缴费基数核对。",
+      "pension": {
+        "rate": 0.08,
+        "min": 5521,
+        "max": 27603,
+        "effectiveFrom": "2026-07-01",
+        "evidenceStatus": "verified"
+      },
+      "medicalPlans": [
+        {
+          "id": "tier1",
+          "label": "职工医保一档",
+          "rate": 0.02,
+          "min": 6727,
+          "max": 33633,
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-12-31",
+          "evidenceStatus": "official-index",
+          "note": "深圳户籍在职职工应参加一档；非深户按单位实际参保档次。"
+        },
+        {
+          "id": "tier2",
+          "label": "职工医保二档",
+          "rate": 0.005,
+          "min": 6727,
+          "max": 33633,
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-12-31",
+          "evidenceStatus": "official-index",
+          "note": "现行二档按本人工资基数上下限计费，不能套用旧制度固定社平基数。"
+        }
+      ],
+      "unemployment": {
+        "rate": 0.002,
+        "min": 2700,
+        "max": 48471,
+        "effectiveFrom": "2026-09-01",
+        "evidenceStatus": "derived-cap",
+        "note": "费率由2026年广州人社对全省政策执行情况核对；上限为参考折算值，须按单位申报核实。"
+      },
+      "housing": {
+        "rate": 0.05,
+        "minRate": 0.05,
+        "maxRate": 0.12,
+        "rateStep": 0.01,
+        "min": 2520,
+        "max": 48471,
+        "newJoinerMin": 2700,
+        "newJoinerFrom": "2026-09-01",
+        "effectiveFrom": "2026-07-01",
+        "effectiveTo": "2027-06-30",
+        "evidenceStatus": "derived-cap",
+        "note": "5%仅为可修改的示例比例。常规年度下限2520元；2026-09-01起新参加工作/新调入职工下限2700元。个人比例原则上与单位一致，可自愿提高至12%。上限48471元为参考折算。"
+      },
+      "sources": [
+        {
+          "title": "广东省2026年职工基本养老保险缴费基数通知（粤人社发〔2026〕24号）",
+          "url": "https://hrss.gd.gov.cn/zwgk/gsgg/content/post_4957552.html",
+          "effective": "企业职工2026-07-01起",
+          "verification": "official-text"
+        },
+        {
+          "title": "深圳医保局2026年度医保缴费基数提示",
+          "url": "https://hsa.sz.gov.cn/gkmlpt/content/12/12567/post_12567884.html",
+          "effective": "2026-01-01至2026-12-31",
+          "verification": "official-index"
+        },
+        {
+          "title": "深圳市医疗保障办法（市政府令第358号）",
+          "url": "https://hsa.sz.gov.cn/gkmlpt/content/10/10826/post_10826882.html",
+          "effective": "2023-10-01起；个人一档2%、二档0.5%",
+          "verification": "official-index"
+        },
+        {
+          "title": "广州人社：2026年失业保险降费政策执行情况",
+          "url": "https://www.gz.gov.cn/ysgz/xwdt/ysdt/content/post_11006324.html",
+          "effective": "2026-09-21发布，说明全省个人0.2%政策执行至今",
+          "verification": "official-text"
+        },
+        {
+          "title": "深圳人社：2026年最低工资调整",
+          "url": "https://hrss.sz.gov.cn/xxgk/qtxx/tzgg/content/post_12954949.html",
+          "effective": "2026-09-01起，2700元/月",
+          "verification": "official-index"
+        },
+        {
+          "title": "深圳公积金2026年度基数规则",
+          "url": "https://www.sz.gov.cn/hdjl/ywzsk/jsj/zfgjj/content/post_12893587.html",
+          "effective": "2026-07-01至2027-06-30；上年度在岗职工月均工资三倍",
+          "verification": "official-index"
+        },
+        {
+          "title": "深圳公积金：2026年9月新入职职工基数下限",
+          "url": "https://zjj.sz.gov.cn/csml/zfgjjtlzx/zmhd/cjwtjd_236/jcyw/content/post_12977412.html",
+          "effective": "2026-09-01起，新参加工作及新调入职工2700元",
+          "verification": "official-index"
+        },
+        {
+          "title": "深圳公积金缴存比例规则",
+          "url": "https://zjj.sz.gov.cn/hdjl/ywzs/gjj/content/post_12703761.html",
+          "effective": "2026-03-26答复；个人5%至12%，不低于单位比例",
+          "verification": "official-index"
+        },
+        {
+          "title": "深圳市2025年城镇单位就业人员平均工资情况",
+          "url": "https://www.sz.gov.cn/cn/xxgk/zfxxgj/tjsj/tjgb/content/mpost_12907800.html",
+          "effective": "2026-07-24发布；在岗职工年均193881元",
+          "verification": "official-index"
+        },
+        {
+          "title": "深圳社保基数公开汇总（上限交叉核对，非政策原文）",
+          "url": "https://m.bendibao.com/bsy3352.html",
+          "effective": "2026-10-08更新",
+          "verification": "secondary"
+        }
+      ]
+    },
+    "guangzhou": {
+      "name": "广州",
+      "periodLabel": "2026年11月参考口径",
+      "status": "partially-derived",
+      "note": "本预设将核验日的缴费参数固定用于12个月Offer情景估算，不回放2026年内历次调整或补差。实际缴费基数可能按上年度平均工资/单位申报确定，可用工资条金额覆盖。失业上限42933元目前由公开转载的年工资171731元折月取整乘3交叉核对，未读取到广州官方2026缴费表，标为待核验参考值。",
+      "pension": {
+        "rate": 0.08,
+        "min": 5521,
+        "max": 27603,
+        "effectiveFrom": "2026-07-01",
+        "evidenceStatus": "verified"
+      },
+      "medicalPlans": [
+        {
+          "id": "employee",
+          "label": "职工基本医疗保险",
+          "rate": 0.02,
+          "min": 6234,
+          "max": 31170,
+          "effectiveFrom": "2026-01-01",
+          "effectiveTo": "2026-12-31",
+          "evidenceStatus": "verified"
+        }
+      ],
+      "unemployment": {
+        "rate": 0.002,
+        "min": 2680,
+        "max": 42933,
+        "effectiveFrom": "2026-09-01",
+        "evidenceStatus": "secondary-derived-cap",
+        "note": "费率与最低工资已核官方；上限42933元由转载社平工资折算及公开汇总交叉核对，未核到官方缴费表，请按实际核对。"
+      },
+      "housing": {
+        "rate": 0.05,
+        "minRate": 0.05,
+        "maxRate": 0.12,
+        "rateStep": 0.01,
+        "min": 2680,
+        "max": 41697,
+        "effectiveFrom": "2026-09-01",
+        "effectiveTo": "2027-06-30",
+        "evidenceStatus": "verified",
+        "note": "5%仅为可修改示例。上限按2026年度通知；下限已采用2026-09-01调整后的2680元，不能继续使用7月通知中的2500元。"
+      },
+      "sources": [
+        {
+          "title": "广东省2026年职工基本养老保险缴费基数通知（粤人社发〔2026〕24号）",
+          "url": "https://hrss.gd.gov.cn/zwgk/gsgg/content/post_4957552.html",
+          "effective": "企业职工2026-07-01起",
+          "verification": "official-text"
+        },
+        {
+          "title": "广州12345：2026年养老及职工医保缴费口径",
+          "url": "https://wx12345.gzonline.gov.cn/km/showMsg?id=BEAFDBCFD",
+          "effective": "养老2026-07至2027-06；医保2026全年",
+          "verification": "official-text"
+        },
+        {
+          "title": "广州人社：2026年失业保险降费政策执行情况",
+          "url": "https://www.gz.gov.cn/ysgz/xwdt/ysdt/content/post_11006324.html",
+          "effective": "2026-09-21发布，说明全省个人0.2%政策执行至今",
+          "verification": "official-text"
+        },
+        {
+          "title": "广州人社2026年最低工资调整通知",
+          "url": "https://rsj.gz.gov.cn/zzzq/tzgg/content/post_10981804.html",
+          "effective": "2026-09-01起，2680元/月",
+          "verification": "official-index"
+        },
+        {
+          "title": "广州公积金2026年度缴存调整通知",
+          "url": "https://gjj.gz.gov.cn/gg/tzgg/content/post_10879601.html",
+          "effective": "2026-07-01至2027-06-30；上限41697元，比例5%至12%",
+          "verification": "official-text"
+        },
+        {
+          "title": "广州公积金最低缴存基数调整政策解读",
+          "url": "https://gjj.gz.gov.cn/gkmlpt/content/10/10983/post_10983432.html",
+          "effective": "2026-09-01起，下限2680元",
+          "verification": "official-text"
+        },
+        {
+          "title": "广州2026年社保缴费基数汇总（失业上限待核对官方表）",
+          "url": "https://gz.bendibao.com/life/202519/355895.shtml",
+          "effective": "2026-10-16更新",
+          "verification": "secondary"
+        },
+        {
+          "title": "2025广州在岗职工月平均工资折算（非官方转载）",
+          "url": "https://www.chengenghua.com/12034.html",
+          "effective": "年工资171731元折月约14311元",
+          "verification": "secondary"
+        }
+      ]
+    }
+  },
+  "nationalSources": [
+    {
+      "title": "国家税务总局：个人所得税扣缴申报管理办法（试行）",
+      "url": "https://www.chinatax.gov.cn/n810341/n810760/c3959585/content.html",
+      "effective": "2019-01-01起；累计预扣法、每月5000元减除费用及累计税率表",
+      "verification": "official-text"
+    },
+    {
+      "title": "财政部 税务总局2023年第30号：全年一次性奖金个税政策",
+      "url": "https://fgk.chinatax.gov.cn/zcfgk/c102416/c5211524/content.html",
+      "effective": "延续至2027-12-31；符合条件可单独计税或并入综合所得",
+      "verification": "official-text"
+    }
+  ],
+  "assumptions": [
+    "个人住房公积金默认5%是产品示例，不代表任一公司的实际福利。",
+    "社保和公积金缴费基数不必相同，也不必等于当月工资。",
+    "未核到的历史期间及特殊减免不自动推断；用工资条实际扣款覆盖。",
+    "工伤、生育在普通在职职工场景下不计个人扣款。",
+    "公积金属于个人账户积累，不计入银行卡到手现金。"
+  ]
+}
