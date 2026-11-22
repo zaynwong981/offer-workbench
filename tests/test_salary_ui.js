@@ -31,7 +31,7 @@ test('job ranges and unknown salaries clear the previous monthly salary instead 
 
 test('explicit monthly pay and known cities can be prefilled without guessing unknown cities', () => {
   assert.deepEqual(SalaryUI.normalizePrefill({monthlyGross: 22500, salaryMonths: 14, city: '广州'}).values, {monthlyGross: '22500', salaryMonths: '14', city: 'guangzhou'});
-  const unknown = SalaryUI.normalizePrefill({city: '杭州', salaryMonths: 10});
+  const unknown = SalaryUI.normalizePrefill({city: '成都', salaryMonths: 10});
   assert.equal(unknown.values.city, undefined);
   assert.equal(unknown.values.salaryMonths, undefined);
   assert.equal(unknown.notices.length, 2);
@@ -113,4 +113,28 @@ test('an asynchronous policy response does not mount into a detached salary page
   await pending;
   assert.equal(container.innerHTML, initial);
   assert.equal(context.SalaryUI.capture(), null);
+});
+
+
+test('five city policies preserve real contribution differences and Beijing fixed fee', () => {
+  const policies=JSON.parse(fs.readFileSync(path.join(__dirname,'../app/frontend/config/salary-policies.json'),'utf8'));
+  assert.deepEqual(Object.keys(policies.cities),['beijing','shanghai','guangzhou','shenzhen','hangzhou']);
+  const engine=require('../app/frontend/js/salary-engine.js');
+  for(const [id,net] of [['beijing',145377.6],['shanghai',145410],['hangzhou',144600]]) {
+    const draft=SalaryUI.restoreDraft({schemaVersion:1,city:id,monthlyGross:'15000'});
+    assert.equal(engine.calculate(SalaryUI.inputFromDraft(draft,policies)).annual.net,net);
+    assert.equal(SalaryUI.normalizePrefill({city:policies.cities[id].name}).values.city,id);
+    const lo=SalaryUI.presetContributions(policies.cities[id],'1000','','5');
+    const hi=SalaryUI.presetContributions(policies.cities[id],'100000','','5');
+    assert.equal(lo.pension.base,policies.cities[id].pension.min);
+    assert.equal(hi.housing.base,policies.cities[id].housing.max);
+  }
+  const sh=SalaryUI.restoreDraft({schemaVersion:1,city:'shanghai',monthlyGross:'50000',housingRate:'7',supplementalHousingRate:'5'});
+  const result=engine.calculate(SalaryUI.inputFromDraft(sh,policies));
+  assert.equal(result.monthlyContributions.housing,2641+1887);
+  sh.housingRate='12';assert.throws(()=>SalaryUI.inputFromDraft(sh,policies),/最高/);
+  sh.housingRate='7';sh.supplementalHousingRate='1.5';assert.throws(()=>SalaryUI.inputFromDraft(sh,policies),/整数/);
+  const bj=SalaryUI.restoreDraft({schemaVersion:1,city:'beijing',monthlyGross:'15000'});
+  bj.manual=true;bj.contributionFields=SalaryUI.fieldsFromContributions(SalaryUI.presetContributions(policies.cities.beijing,'15000','','5'));
+  assert.equal(SalaryUI.inputFromDraft(SalaryUI.restoreDraft(bj),policies).contributions.medical.fixedMonthly,3);
 });

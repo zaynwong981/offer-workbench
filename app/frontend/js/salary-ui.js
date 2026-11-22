@@ -6,13 +6,14 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
   'use strict';
   const STORAGE_KEY = 'career-studio-salary-v1';
+  const CITY_IDS = ['beijing', 'shanghai', 'guangzhou', 'shenzhen', 'hangzhou'];
   const FIELDS = ['pension', 'medical', 'unemployment', 'housing'];
   const LABELS = {pension: '养老保险', medical: '医疗保险', unemployment: '失业保险', housing: '住房公积金'};
   const clone = value => JSON.parse(JSON.stringify(value));
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const money = value => new Intl.NumberFormat('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(value);
   const numeric = value => (typeof value === 'number' || (typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value.trim()))) && Number.isFinite(Number(value));
-  const defaults = () => ({schemaVersion: 1, city: 'shenzhen', monthlyGross: '15000', salaryMonths: '12', additionalBonus: '0', bonusMode: 'merged', specialDeductionMonthly: '0', otherDeductionMonthly: '0', housingRate: '5', medicalPlan: '', manual: false, contributionFields: {}, sourceLabel: '', sourceWarning: '', salaryRange: null});
+  const defaults = () => ({schemaVersion: 1, city: 'shenzhen', monthlyGross: '15000', salaryMonths: '12', additionalBonus: '0', bonusMode: 'merged', specialDeductionMonthly: '0', otherDeductionMonthly: '0', housingRate: '5', supplementalHousingRate: '0', medicalPlan: '', manual: false, contributionFields: {}, sourceLabel: '', sourceWarning: '', salaryRange: null});
   let current = null, activeMount = 0;
 
   function normalizePrefill(prefill = {}) {
@@ -28,9 +29,9 @@
       else notices.push('发薪月数未能确认，请核对后填写。');
     }
     if (prefill.city) {
-      const city = {深圳: 'shenzhen', 广州: 'guangzhou', shenzhen: 'shenzhen', guangzhou: 'guangzhou'}[prefill.city];
+      const city = {北京:'beijing',上海:'shanghai',广州:'guangzhou',深圳:'shenzhen',杭州:'hangzhou', ...Object.fromEntries(CITY_IDS.map(id=>[id,id]))}[prefill.city];
       if (city) values.city = city;
-      else notices.push('该岗位城市暂未提供参考参数，请自行选择深圳或广州作为比较场景。');
+      else notices.push('该岗位城市暂未提供参考参数，请自行选择支持的城市作为比较场景。');
     }
     if (typeof prefill.sourceLabel === 'string') values.sourceLabel = prefill.sourceLabel.slice(0, 300);
     if (typeof prefill.sourceWarning === 'string') values.sourceWarning = prefill.sourceWarning.slice(0, 500);
@@ -40,8 +41,8 @@
 
   function restoreDraft(value) {
     const fresh = defaults();
-    if (!value || value.schemaVersion !== 1 || !['shenzhen', 'guangzhou'].includes(value.city)) return fresh;
-    for (const key of ['city', 'monthlyGross', 'salaryMonths', 'additionalBonus', 'bonusMode', 'specialDeductionMonthly', 'otherDeductionMonthly', 'housingRate', 'medicalPlan', 'sourceLabel', 'sourceWarning']) {
+    if (!value || value.schemaVersion !== 1 || !CITY_IDS.includes(value.city)) return fresh;
+    for (const key of ['city', 'monthlyGross', 'salaryMonths', 'additionalBonus', 'bonusMode', 'specialDeductionMonthly', 'otherDeductionMonthly', 'housingRate', 'supplementalHousingRate', 'medicalPlan', 'sourceLabel', 'sourceWarning']) {
       if (typeof value[key] === 'string' && value[key].length <= 500) fresh[key] = value[key];
     }
     fresh.salaryRange = normalizePrefill({salaryRange: value.salaryRange}).values.salaryRange || null;
@@ -49,7 +50,7 @@
     if (value.contributionFields && typeof value.contributionFields === 'object') {
       for (const field of FIELDS) {
         const item = value.contributionFields[field];
-        if (item && typeof item.base === 'string' && typeof item.rate === 'string') fresh.contributionFields[field] = {base: item.base.slice(0, 40), rate: item.rate.slice(0, 40)};
+        if (item && typeof item.base === 'string' && typeof item.rate === 'string') fresh.contributionFields[field] = {base: item.base.slice(0, 40), rate: item.rate.slice(0, 40), fixedMonthly: typeof item.fixedMonthly === 'string' ? item.fixedMonthly.slice(0,40) : '0'};
       }
     }
     return fresh;
@@ -62,7 +63,7 @@
     return result;
   }
 
-  function presetContributions(city, monthlyGross, planId, housingRate) {
+  function presetContributions(city, monthlyGross, planId, housingRate, supplementalHousingRate = 0) {
     if (!city) throw new Error('暂未提供该城市的参考缴费参数。');
     const gross = requiredNumber(monthlyGross, '税前月薪');
     const housing = requiredNumber(housingRate, '公积金个人比例', 0, 12) / 100;
@@ -78,7 +79,18 @@
       if (!Number.isFinite(rate) || rate < 0 || rate > 1) throw new Error(LABELS[key] + '参考比例未核实，请按工资条手动填写。');
       result[key] = {base: fixed ? policy.fixedBase : Math.min(policy.max, Math.max(policy.min, gross)), rate};
     }
+    if (medical.fixedMonthly !== undefined) result.medical.fixedMonthly = requiredNumber(medical.fixedMonthly, '医保固定附加额');
+    applyHousing(result.housing, city, supplementalHousingRate);
     return result;
+  }
+  function applyHousing(contribution, city, supplemental) {
+    const h=city.housing;
+    if (contribution.rate > (h.maxRate || .12)) throw new Error(city.name+'基本公积金比例最高为 '+Math.round(h.maxRate*100)+'%，补充缴存请单独填写。');
+    if (h.supplementalMaxRate && contribution.rate !== 0 && (![5,6,7].includes(Math.round(contribution.rate*10000)/100))) throw new Error('上海基本公积金请选择5%、6%或7%；特殊低比例请先核实适用政策。');
+    const extra=h.supplementalMaxRate ? requiredNumber(supplemental || 0,'补充公积金比例',0,h.supplementalMaxRate*100)/100 : 0;
+    if (extra && (contribution.rate===0 || !Number.isInteger(extra*100))) throw new Error('补充公积金须先缴基本公积金，并使用1%至5%的整数比例。');
+    if(extra)contribution.supplementalRate=extra;
+    if(h.roundToYuan)contribution.roundToYuan=true;
   }
 
   function inputFromDraft(draft, policies) {
@@ -100,15 +112,17 @@
           rate: requiredNumber(item.rate, LABELS[key] + '个人比例', 0, key === 'housing' ? 12 : 100) / 100
         };
       }
+      input.contributions.medical.fixedMonthly = requiredNumber(draft.contributionFields.medical?.fixedMonthly ?? '0', '医保固定附加额');
+      applyHousing(input.contributions.housing, policies.cities[draft.city], draft.supplementalHousingRate);
       const housingLimit = policies.cities[draft.city]?.housing?.max;
       if (!Number.isFinite(housingLimit)) throw new Error('公积金税前可扣除基数上限尚未核实，暂无法按手动参数测算。');
       if (input.contributions.housing.base > housingLimit) throw new Error('公积金基数超过当前参考税前上限 ' + housingLimit + ' 元，请核对工资条中的税前允许扣除部分。');
-    } else input.contributions = presetContributions(policies.cities[draft.city], draft.monthlyGross, draft.medicalPlan, draft.housingRate);
+    } else input.contributions = presetContributions(policies.cities[draft.city], draft.monthlyGross, draft.medicalPlan, draft.housingRate, draft.supplementalHousingRate);
     return input;
   }
 
   function fieldsFromContributions(contributions) {
-    return Object.fromEntries(FIELDS.map(key => [key, {base: String(contributions[key].base), rate: String(Math.round(contributions[key].rate * 1000000) / 10000)}]));
+    return Object.fromEntries(FIELDS.map(key => [key, {base: String(contributions[key].base), rate: String(Math.round(contributions[key].rate * 1000000) / 10000), fixedMonthly: String(contributions[key].fixedMonthly || 0)}]));
   }
 
   function safeLink(value) {
@@ -137,10 +151,10 @@
       <div class="salary-form-grid">
         ${field('specialDeductionMonthly', '专项附加扣除（元/月）', draft.specialDeductionMonthly)}
         <label for="salary-housingRate">公积金个人缴存比例（%）<input id="salary-housingRate" name="housingRate" type="number" min="0" max="12" step="0.5" value="${esc(draft.housingRate)}"></label>
-      </div><p class="salary-help">专项附加扣除填写个税 App 已申报的每月合计，适用资格与分摊以实际申报为准。</p>
+      </div><label id="salary-supplemental-label" hidden>补充公积金个人比例（%，仅上海）<input name="supplementalHousingRate" id="salary-supplementalHousingRate" type="number" min="0" max="5" step="1" value="${esc(draft.supplementalHousingRate)}"></label><p class="salary-help" id="salary-city-note"></p><p class="salary-help">专项附加扣除填写个税 App 已申报的每月合计，适用资格与分摊以实际申报为准。</p>
       <div class="salary-quick-row" aria-label="专项附加扣除快捷设置">${[0, 1500, 3000].map(n => `<button type="button" data-salary-deduction="${n}">${n.toLocaleString('zh-CN')} 元/月</button>`).join('')}</div>
       <div class="salary-form-grid"><label for="salary-medicalPlan">医保参考方案<select id="salary-medicalPlan" name="medicalPlan"></select></label><label for="salary-calculationMode">缴费参数<select id="salary-calculationMode" name="calculationMode"><option value="reference" ${!draft.manual ? 'selected' : ''}>按城市参考参数估算</option><option value="manual" ${draft.manual ? 'selected' : ''}>手动基数与个人比例</option></select></label></div>
-      <details class="salary-advanced"><summary>核对社保、公积金基数与其他扣除 <span id="salary-custom-tag"></span></summary><p class="salary-help">参考方案用月薪匹配上下限；单位申报基数可能按上年平均工资等确定。手动输入请使用工资条中税前允许扣除的基数与个人比例，仅计个人扣款。公积金常规比例 5%–12%，填 0% 表示不缴；超税前上限的额外扣款暂不建模。</p><div class="salary-contribution-fields">${FIELDS.map(key => `<fieldset><legend>${LABELS[key]}</legend>${field('contribution_' + key + 'Base', '税前可扣除基数（元/月）', draft.contributionFields[key]?.base || '')}${field('contribution_' + key + 'Rate', '个人比例（%）', draft.contributionFields[key]?.rate || '', 0, key === 'housing' ? 12 : 100, '0.01')}</fieldset>`).join('')}</div>${field('otherDeductionMonthly', '其他合规税前扣除（元/月）', draft.otherDeductionMonthly)}<p class="salary-help">其他扣除仅指可在税前减除的项目，不包含消费支出。工资之外的劳务报酬、年度汇算和换工作累计收入不在本次模型内。</p></details>
+      <details class="salary-advanced"><summary>核对社保、公积金基数与其他扣除 <span id="salary-custom-tag"></span></summary><p class="salary-help">参考方案用月薪匹配上下限；单位申报基数可能按上年平均工资等确定。手动输入请使用工资条中税前允许扣除的基数与个人比例，仅计个人扣款。公积金常规比例 5%–12%，填 0% 表示不缴；超税前上限的额外扣款暂不建模。</p><div class="salary-contribution-fields">${FIELDS.map(key => `<fieldset><legend>${LABELS[key]}</legend>${field('contribution_' + key + 'Base', '税前可扣除基数（元/月）', draft.contributionFields[key]?.base || '')}${field('contribution_' + key + 'Rate', '个人比例（%）', draft.contributionFields[key]?.rate || '', 0, key === 'housing' ? 12 : 100, '0.01')}${key === 'medical' ? field('contribution_medicalFixed', '医保固定附加额（元/月）', draft.contributionFields.medical?.fixedMonthly ?? '0') : ''}</fieldset>`).join('')}</div>${field('otherDeductionMonthly', '其他合规税前扣除（元/月）', draft.otherDeductionMonthly)}<p class="salary-help">其他扣除仅指可在税前减除的项目，不包含消费支出。工资之外的劳务报酬、年度汇算和换工作累计收入不在本次模型内。</p></details>
       <div id="salary-form-error" class="error-banner" role="alert" hidden></div><p id="salary-storage-status" class="salary-help">参数自动保存在当前浏览器；不会写入个人简历或向外发送。</p></form></section>
       <section class="salary-results" aria-label="税后测算结果"><div id="salary-result" aria-live="polite"></div></section></div>
       <div id="salary-city-comparison"></div><div id="salary-monthly"></div><div id="salary-policy"></div>
@@ -181,7 +195,7 @@
     const city = state.policies.cities[state.draft.city], plans = city?.medicalPlans || [];
     if (!plans.some(plan => plan.id === state.draft.medicalPlan)) state.draft.medicalPlan = plans[0]?.id || '';
     try {
-      state.draft.contributionFields = fieldsFromContributions(presetContributions(city, state.draft.monthlyGross, state.draft.medicalPlan, state.draft.housingRate));
+      state.draft.contributionFields = fieldsFromContributions(presetContributions(city, state.draft.monthlyGross, state.draft.medicalPlan, state.draft.housingRate, state.draft.supplementalHousingRate));
       state.referenceError = '';
     } catch (error) { state.referenceError = error.message; }
   }
@@ -189,6 +203,10 @@
     const plans = state.policies.cities[state.draft.city]?.medicalPlans || [];
     const selected = plans.some(plan => plan.id === state.draft.medicalPlan) ? state.draft.medicalPlan : plans[0]?.id || '';
     state.draft.medicalPlan = selected;
+    const city = state.policies.cities[state.draft.city];
+    state.container.querySelector('#salary-supplemental-label').hidden = !city.housing.supplementalMaxRate;
+    control(state,'supplementalHousingRate').value=state.draft.supplementalHousingRate;
+    state.container.querySelector('#salary-city-note').textContent = city.quickNote || '';
     control(state, 'medicalPlan').innerHTML = plans.map(plan => `<option value="${esc(plan.id)}" ${plan.id === selected ? 'selected' : ''}>${esc(plan.label)}</option>`).join('');
   }
   function syncContributionControls(state) {
@@ -197,6 +215,7 @@
       control(state, 'contribution_' + key + 'Base').value = item.base ?? '';
       control(state, 'contribution_' + key + 'Rate').value = item.rate ?? '';
     }
+    control(state, 'contribution_medicalFixed').value = state.draft.contributionFields.medical?.fixedMonthly ?? '0';
     control(state, 'calculationMode').value = state.draft.manual ? 'manual' : 'reference';
   }
   function onInput(state, event) {
@@ -207,11 +226,11 @@
       if (state.draft.manual) state.container.querySelector('.salary-advanced').open = true;
       if (!state.draft.manual) { applyReference(state); syncContributionControls(state); }
     } else {
-      const contribution = FIELDS.find(key => name === 'contribution_' + key + 'Base' || name === 'contribution_' + key + 'Rate');
+      const contribution = FIELDS.find(key => name === 'contribution_' + key + 'Base' || name === 'contribution_' + key + 'Rate' || (key === 'medical' && name === 'contribution_medicalFixed'));
       if (contribution) {
         state.draft.manual = true;
         state.draft.contributionFields[contribution] ||= {base: '', rate: ''};
-        state.draft.contributionFields[contribution][name.endsWith('Base') ? 'base' : 'rate'] = event.target.value;
+        state.draft.contributionFields[contribution][name.endsWith('Base') ? 'base' : name.endsWith('Fixed') ? 'fixedMonthly' : 'rate'] = event.target.value;
         control(state, 'calculationMode').value = 'manual';
         if (contribution === 'housing' && name.endsWith('Rate')) {
           state.draft.housingRate = event.target.value; control(state, 'housingRate').value = event.target.value;
@@ -219,9 +238,11 @@
       } else {
         state.draft[name] = event.target.value;
         if (name === 'city') {
-          state.draft.manual = false; state.draft.medicalPlan = '';
+          state.draft.manual = false; state.draft.medicalPlan = ''; state.draft.supplementalHousingRate = '0';
+          const maxRate = state.policies.cities[state.draft.city].housing.maxRate || .12;
+          if (Number(state.draft.housingRate) > maxRate * 100) {state.draft.housingRate = String(Math.round(maxRate * 100));control(state,'housingRate').value=state.draft.housingRate;}
           applyReference(state); updatePlans(state); syncContributionControls(state); renderPolicy(state);
-        } else if (['monthlyGross', 'medicalPlan', 'housingRate'].includes(name)) {
+        } else if (['monthlyGross', 'medicalPlan', 'housingRate', 'supplementalHousingRate'].includes(name)) {
           if (name === 'housingRate' && state.draft.manual) {
             state.draft.contributionFields.housing ||= {base: '', rate: ''};
             state.draft.contributionFields.housing.rate = event.target.value;
@@ -297,12 +318,12 @@
     const rows = Object.entries(state.policies.cities).map(([id, city]) => {
       try {
         const plan = id === state.draft.city ? state.draft.medicalPlan : city.medicalPlans[0]?.id;
-        const contributions = presetContributions(city, state.draft.monthlyGross, plan, state.draft.housingRate);
+        const contributions = presetContributions(city, state.draft.monthlyGross, plan, Math.min(Number(state.draft.housingRate), Math.round((city.housing.maxRate || .12) * 100)), state.draft.supplementalHousingRate);
         const calculated = root.SalaryEngine.calculate({...input, contributions});
-        return `<tr><th scope="row">${esc(city.name)}<small>${esc(city.medicalPlans.find(p => p.id === plan)?.label || city.medicalPlans[0]?.label)}</small></th><td>¥${money(calculated.annual.net)}</td><td>¥${money(calculated.annual.monthlyAverageNet)}</td><td>¥${money(calculated.monthlyContributions.total)}</td><td>¥${money(calculated.annual.tax)}</td></tr>`;
+        return `<tr><th scope="row">${esc(city.name)}<small>${esc(city.medicalPlans.find(p => p.id === plan)?.label || city.medicalPlans[0]?.label)} · 公积金${Math.round(contributions.housing.rate*100)}%${contributions.housing.supplementalRate ? '+'+Math.round(contributions.housing.supplementalRate*100)+'%' : ''}</small></th><td>¥${money(calculated.annual.net)}</td><td>¥${money(calculated.annual.monthlyAverageNet)}</td><td>¥${money(calculated.monthlyContributions.total)}</td><td>¥${money(calculated.annual.tax)}</td></tr>`;
       } catch (error) { return `<tr><th scope="row">${esc(city.name)}</th><td colspan="4">${esc(error.message)}</td></tr>`; }
     }).join('');
-    state.container.querySelector('#salary-city-comparison').innerHTML = `<section class="panel salary-compare-panel"><div class="panel-heading"><h2>深圳与广州 · 同薪比较</h2><span class="tag blue">均为城市参考方案</span></div><p class="salary-help">沿用相同税前薪酬、扣除额、公积金比例与奖金方式；分别应用两地参考基数。当前手动基数不会用于此表，因此可能与上方结果不同。另一城市采用列表中的首个职工医保方案。</p><div class="salary-table-wrap"><table class="salary-table"><thead><tr><th>城市 / 医保</th><th>全年到手</th><th>月均到手</th><th>每月五险一金个人扣款</th><th>全年个税</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+    state.container.querySelector('#salary-city-comparison').innerHTML = `<section class="panel salary-compare-panel"><div class="panel-heading"><h2>北上广深杭 · 同薪比较</h2><span class="tag blue">均为城市参考方案</span></div><p class="salary-help">沿用相同税前薪酬、扣除额与奖金方式，分别应用各地参考基数；公积金基本比例不超过各城常规上限，上海补充比例单列（默认0）。当前手动基数不会用于此表，因此可能与上方结果不同。其他城市采用首个职工医保方案；各城适用范围及待核验项请切换城市查看。</p><div class="salary-table-wrap"><table class="salary-table"><thead><tr><th>城市 / 医保</th><th>全年到手</th><th>月均到手</th><th>每月五险一金个人扣款</th><th>全年个税</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
   }
   function renderMonths(state, result) {
     const rows = result.months.map(m => `<tr><th scope="row">${m.month} 月</th><td>¥${money(m.gross)}</td><td>¥${money(m.contributions)}</td><td>¥${money(m.salaryTax)}</td><td>¥${money(m.bonusTax)}</td><td class="salary-table-net">¥${money(m.net)}</td></tr>`).join('');
@@ -311,14 +332,14 @@
   function renderPolicy(state) {
     const city = state.policies.cities[state.draft.city];
     const policyOpen = state.container.querySelector('.salary-policy-panel')?.open === true;
-    state.container.querySelector('#salary-reference-period').textContent = '参考口径：' + (city.periodLabel || '适用期未核实') + ' · 资料核验 ' + (state.policies.verifiedOn || '未记录') + '。使用这组参数估算全年，不是 2026 年逐月历史税单。' + (city.status?.includes('derived') ? ' 部分缴费上限为参考折算值，高薪场景请按单位实际基数核对；详见下方政策口径。' : '');
+    state.container.querySelector('#salary-reference-period').textContent = '参考口径：' + (city.periodLabel || '适用期未核实') + ' · 资料核验 ' + (city.verifiedOn || state.policies.verifiedOn || '未记录') + '。使用这组参数估算全年，不是 2026 年逐月历史税单。' + (city.status?.includes('derived') ? ' 部分缴费上限为参考折算值，高薪场景请按单位实际基数核对；详见下方政策口径。' : '');
     const sources = [...(city.sources || []), ...(state.policies.nationalSources || [])];
     const sourceList = sources.map(source => {
       const url = safeLink(source.url);
       return `<li>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)} ↗</a>` : esc(source.title)}${source.effective ? `<small>${esc(source.effective)}${source.verification === 'secondary' ? ' · 辅助来源，非政策原文' : ''}</small>` : ''}</li>`;
     }).join('');
-    const componentNotes = [city.housing?.note, ...city.medicalPlans.map(plan => plan.note)].filter(Boolean);
-    state.container.querySelector('#salary-policy').innerHTML = `<details class="panel salary-policy-panel"${policyOpen ? ' open' : ''}><summary>查看政策口径与来源 <span>${esc(city.name)} · ${esc(city.periodLabel || '请核对适用期')}</span></summary><p><strong>参考适用期：</strong>${esc(city.periodLabel || '未核实')}<br><strong>资料核验日期：</strong>${esc(state.policies.verifiedOn || '未记录')}</p><p>${esc(city.note || '')}</p>${componentNotes.map(note => `<p>${esc(note)}</p>`).join('')}<p class="salary-help">参考参数不是单位实际缴费承诺；如入职时间跨过政策调整日，请在高级参数中按新的基数和比例校准。</p><ul>${sourceList || '<li>暂无可用来源，请手动核对缴费参数。</li>'}</ul></details>`;
+    const componentNotes = [city.housing?.note, city.unemployment?.note, ...city.medicalPlans.map(plan => plan.note)].filter(Boolean);
+    state.container.querySelector('#salary-policy').innerHTML = `<details class="panel salary-policy-panel"${policyOpen ? ' open' : ''}><summary>查看政策口径与来源 <span>${esc(city.name)} · ${esc(city.periodLabel || '请核对适用期')}</span></summary><p><strong>参考适用期：</strong>${esc(city.periodLabel || '未核实')}<br><strong>资料核验日期：</strong>${esc(city.verifiedOn || state.policies.verifiedOn || '未记录')}</p><p>${esc(city.note || '')}</p>${componentNotes.map(note => `<p>${esc(note)}</p>`).join('')}<p class="salary-help">参考参数不是单位实际缴费承诺；如入职时间跨过政策调整日，请在高级参数中按新的基数和比例校准。</p><ul>${sourceList || '<li>暂无可用来源，请手动核对缴费参数。</li>'}</ul></details>`;
   }
 
   async function mount(container, options = {}) {

@@ -18,10 +18,16 @@ test('explicit single monthly amount and decimal wan ranges are supported', () =
 });
 test('annual, daily, negotiated and ambiguous amounts never inherit previous pay', () => {
     for (const salary of ['30-50万/年','1000元/天','面议','20-30','', '30-20K','20K·8薪','10K·30薪']) {
-        const value=prepare({salary,city:'杭州'});
+        const value=prepare({salary,city:'成都'});
         assert.equal(value.monthlyGross,null,salary);
         assert.equal(value.salaryRange,undefined,salary);
         assert.equal(value.city,undefined);
         assert.match(value.sourceWarning,/核实|核对/);
     }
+});
+
+
+test('new supported cities map only explicit city locations',()=>{
+ for(const [name,id] of [['北京市·海淀区','beijing'],['上海','shanghai'],['浙江省杭州·滨江区','hangzhou']]) assert.equal(prepare({city:name,salary:'20K'}).city,id);
+ assert.equal(prepare({city:'北京/上海',salary:'20K'}).city,undefined);
 });

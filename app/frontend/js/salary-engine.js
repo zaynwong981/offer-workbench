@@ -82,9 +82,13 @@
             if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${LABELS[part]}参数格式不正确。`);
             contributions[part] = {
                 base: yuan(fen(value.base, `${LABELS[part]}缴费基数`)),
-                rate: number(value.rate, `${LABELS[part]}个人缴费比例`, 0, part === "housing" ? 0.12 : 1)
+                rate: number(value.rate, `${LABELS[part]}个人缴费比例`, 0, part === "housing" ? 0.12 : 1),
+                fixedMonthly: yuan(fen(number(value.fixedMonthly === undefined ? 0 : value.fixedMonthly, `${LABELS[part]}固定附加额`, 0, part === "medical" ? MAX_AMOUNT : 0), "固定附加额")),
+                supplementalRate: number(value.supplementalRate === undefined ? 0 : value.supplementalRate, "补充公积金比例", 0, part === "housing" ? .05 : 0),
+                roundToYuan: value.roundToYuan === true
             };
         }
+        if (contributions.housing.rate + contributions.housing.supplementalRate > .12 + 1e-10) throw new Error("基本与补充公积金个人比例合计不得超过12%。");
         return {monthlyGross, salaryMonths, additionalBonus: amount("additionalBonus", "额外奖金"), bonusMode,
             specialDeductionMonthly: amount("specialDeductionMonthly", "每月专项附加扣除"),
             otherDeductionMonthly: amount("otherDeductionMonthly", "每月其他依法扣除"), contributions};
@@ -100,8 +104,12 @@
         const bonus = extraSalary + additionalBonus;
         const special = fen(clean.specialDeductionMonthly, "每月专项附加扣除");
         const other = fen(clean.otherDeductionMonthly, "每月其他依法扣除");
-        const contributionFen = Object.fromEntries(PARTS.map(part => [part,
-            multiply(fen(clean.contributions[part].base, "缴费基数"), clean.contributions[part].rate)]));
+        const contributionFen = Object.fromEntries(PARTS.map(part => {
+            const c = clean.contributions[part];
+            const base = fen(c.base, "缴费基数");
+            const round = v => c.roundToYuan ? Math.round(v / 100) * 100 : v;
+            return [part, round(multiply(base, c.rate)) + round(multiply(base, c.supplementalRate)) + fen(c.fixedMonthly, "固定附加额")];
+        }));
         const contributionTotal = PARTS.reduce((sum, part) => sum + contributionFen[part], 0);
         const gross = monthlyGross * 12 + bonus;
         const deductions = 500000 + contributionTotal + special + other;
