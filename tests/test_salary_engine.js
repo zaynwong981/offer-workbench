@@ -140,3 +140,13 @@ test('calculation is pure and browser global matches the Node module API', () =>
     vm.runInContext(fs.readFileSync(require.resolve('../app/frontend/js/salary-engine.js'), 'utf8'), context);
     assert.equal(context.SalaryEngine.calculate({monthlyGross: 15000}).annual.tax, 9480);
 });
+
+
+test('fixed medical fees reduce cash once and invalid supplements are rejected', () => {
+ const plain=engine.calculate(input({contributions:{medical:{base:15000,rate:.02}}}));
+ const fixed=engine.calculate(input({contributions:{medical:{base:15000,rate:.02,fixedMonthly:3}}}));
+ assert.equal(fixed.monthlyContributions.medical,303);
+ assert.equal(cents(plain.annual.net-fixed.annual.net),3240);
+ for(const n of [-1,NaN,Infinity]) assert.throws(()=>engine.calculate(input({contributions:{medical:{base:1,rate:.02,fixedMonthly:n}}})));
+ assert.throws(()=>engine.calculate(input({contributions:{medical:{base:1,rate:.02,supplementalRate:.01}}})));
+});

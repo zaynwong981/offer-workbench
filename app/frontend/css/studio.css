@@ -82,3 +82,29 @@ h1,.page-heading h1{font-size:22px;line-height:1.4}h2,.panel h2{font-size:18px;l
 @media print{.app-footer{display:none}}
 
 @media(max-width:780px){.salary-layout > .salary-results{display:contents}}
+
+/* v0.6.2: compact resume editing, collapsible navigation, bounded split panes. */
+.resume-page .editor-pane{font-size:13px;line-height:1.5}
+.resume-page .editor-pane input,.resume-page .editor-pane textarea,.resume-page .editor-pane select,.resume-page .editor-pane button,.resume-page .editor-pane .ui-select-trigger{font-size:13px}
+.resume-page .editor-pane label,.resume-page .editor-pane .hint,.resume-page .editor-pane .caption{font-size:12px;line-height:1.5}
+.resume-page .editor-pane label.check{font-size:13px}
+.resume-page .editor-pane h2{font-size:16px}.resume-page .editor-pane h3{font-size:14px}
+.nav-icon{display:block;width:20px;height:20px;flex:0 0 20px}.nav-label{min-width:0}.rail-toggle{display:flex;align-items:center;gap:10px;min-height:44px;width:100%;margin-bottom:10px;color:#53657e;border:1px solid var(--border);background:#fff}
+.rail #sections button{justify-content:flex-start;gap:10px}.rail #sections button .nav-label{color:inherit;font-size:inherit}.nav-item .nav-label{font-size:inherit;color:inherit}.nav-item .nav-label>span{font-size:11px}
+.sidebar .backup-actions button,.sidebar #export-all,.rail .backup-actions button{display:flex;align-items:center;justify-content:center;gap:6px}
+body.rail-collapsed{--rail-width:68px}
+.rail-collapsed .nav-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.rail-collapsed .sidebar,.rail-collapsed .shell>.rail{padding-left:10px;padding-right:10px}
+.rail-collapsed .rail-toggle,.rail-collapsed .rail #sections button,.rail-collapsed .sidebar .nav-item{justify-content:center;padding:10px;width:46px;min-height:44px}
+.rail-collapsed .sidebar .nav-caption:not(.versions-caption),.rail-collapsed .sidebar-bottom p{display:none}
+.rail-collapsed .sidebar .versions-caption{font-size:0;padding:6px 0;display:flex;justify-content:center}.rail-collapsed .versions-caption button{font-size:20px;float:none;min-width:44px;min-height:44px}
+.rail-collapsed .sidebar .backup-actions{display:grid;gap:6px}.rail-collapsed .sidebar-bottom button{padding:10px;min-width:44px;min-height:44px}.rail-collapsed .sidebar-bottom{padding-top:10px}.rail-collapsed .rail .backup-actions{grid-template-columns:1fr}
+.panel-divider{display:none;touch-action:none;cursor:col-resize;align-items:center;justify-content:center;align-self:stretch;outline-offset:-2px;border-radius:3px;background:transparent}
+.panel-divider::before{content:'';width:3px;height:34px;border-radius:3px;background:#c4d2e5;transition:background .15s}
+.panel-divider:hover,.panel-divider:focus-visible{background:#dce8fa}.panel-divider:hover::before,.panel-divider:focus-visible::before{background:#245bcc}
+.resizing-panels,.resizing-panels *{cursor:col-resize!important;user-select:none!important}
+@media(min-width:1101px){.resume-page .panels{grid-template-columns:minmax(320px,var(--editor-width,1fr)) 12px minmax(300px,1fr);gap:0}.panel-divider:not([hidden]){display:flex}.resume-page .editor-pane,.resume-page .preview-pane{min-width:0}}
+@media(max-width:780px){.rail-toggle{width:44px;flex:0 0 44px;margin:0}.rail-toggle .nav-label{display:none}.shell>.rail{display:grid;grid-template-columns:44px minmax(0,1fr);gap:6px}.rail #sections{min-width:0}.rail .backup-actions{grid-column:1/-1}.rail-collapsed .rail #sections button{flex:0 0 44px;width:44px}.rail-collapsed .rail .backup-actions{grid-template-columns:1fr 1fr}.rail-collapsed .rail .backup-actions button{width:100%}.rail-collapsed .rail .backup-actions .nav-label{position:static;clip-path:none;width:auto;height:auto}.rail #sections button .nav-icon{width:18px;flex-basis:18px}}
+@media(max-width:650px){.resume-page .sidebar>.rail-toggle{float:right}.rail-collapsed .sidebar{display:flex;align-items:center;gap:6px;padding:8px 16px}.rail-collapsed .sidebar #versions{margin:0;flex:1;min-height:44px}.rail-collapsed .sidebar .versions-caption{margin:0;flex:0 0 44px}.rail-collapsed .sidebar .nav-item{margin-bottom:0;flex:0 0 44px}.rail-collapsed .sidebar>.rail-toggle{float:none;flex:0 0 44px}.rail-collapsed .workspace{margin-left:0}}
+
+.panel-divider::after{content:"↔";position:absolute;font-size:16px;color:#245bcc;opacity:0;background:#eaf1ff;border-radius:4px;padding:0 2px;pointer-events:none}.panel-divider:hover::after,.panel-divider:focus-visible::after{opacity:1}

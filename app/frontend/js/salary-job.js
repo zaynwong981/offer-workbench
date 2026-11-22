@@ -16,6 +16,9 @@
         };
         if (/^(?:广东[省·\s-]*)?深圳(?:市)?(?:[·\s-].*)?$/.test(cityText)) result.city = 'shenzhen';
         else if (/^(?:广东[省·\s-]*)?广州(?:市)?(?:[·\s-].*)?$/.test(cityText)) result.city = 'guangzhou';
+        else if (/^北京(?:市)?(?:[·\s-].*)?$/.test(cityText)) result.city = 'beijing';
+        else if (/^上海(?:市)?(?:[·\s-].*)?$/.test(cityText)) result.city = 'shanghai';
+        else if (/^(?:浙江[省·\s-]*)?杭州(?:市)?(?:[·\s-].*)?$/.test(cityText)) result.city = 'hangzhou';
         const normalized = raw.replace(/[，,]/g, '').replace(/[–—－~～〜至]/g, '-').replace(/\s/g, '');
         const match = normalized.match(/^(\d+(?:\.\d+)?)([kK千万元]?)(?:-(\d+(?:\.\d+)?)([kK千万元]?))?(?:元)?(?:\/月|每月|月薪)?(?:[·•・x×*](\d+(?:\.\d+)?)薪)?$/);
         if (!match) {
@@ -39,7 +42,7 @@
                 if (months > 12) result.sourceWarning += ' 额外薪月暂按12月发放并入工资，不自动认定为可单独计税的年终奖。';
             }
         }
-        if (!result.city) result.sourceWarning += ' 岗位城市未识别为深圳/广州，请核对计算器中选择的城市。';
+        if (!result.city) result.sourceWarning += ' 岗位城市未识别为北上广深杭，请核对计算器中选择的城市。';
         return result;
     }
     return {prepare};

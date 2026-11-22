@@ -94,7 +94,7 @@ class HTTPIntegrationTests(unittest.TestCase):
         status, body = self.request("GET", "/help")
         self.assertEqual(status, 200)
         self.assertIn("使用文档", body.decode())
-        for route in ("/api/about", "/site-info.js", "/guide"):
+        for route in ("/api/about", "/site-info.js", "/guide", "/workspace-layout.js", "/docs/images/user-journey.png", "/docs/USER_JOURNEY.md"):
             self.assertEqual(self.request("GET", route, headers={"Origin":"https://example.com"})[0], 403)
         for path in ("/app/backend/server.py", "/RELEASE.json", "/config.local.json", "/data/resumes.json"):
             self.assertEqual(self.request("GET", path)[0], 404)
@@ -252,7 +252,7 @@ class HTTPIntegrationTests(unittest.TestCase):
             self.assertTrue(body)
         status, policies = self.request("GET", "/salary-policies.json")
         self.assertEqual(status, 200)
-        self.assertEqual(set(policies["cities"]), {"shenzhen", "guangzhou"})
+        self.assertEqual(set(policies["cities"]), {"shenzhen", "guangzhou", "beijing", "shanghai", "hangzhou"})
         self.assertEqual(self.http.state_path.read_bytes(), before)
         self.assertFalse(self.http.boss.calls)
         self.assertEqual(self.request("GET", "/salary-policies.json", headers={"Origin": "https://example.com"})[0], 403)
@@ -268,7 +268,7 @@ class SourceReleaseTests(unittest.TestCase):
                 for name in names:
                     self.assertNotIn("/data/", name)
                     self.assertNotIn("/history/", name)
-                    if name != "offer-workbench/docs/images/calendar-demo.png":
+                    if name not in {"offer-workbench/docs/images/calendar-demo.png", "offer-workbench/docs/images/user-journey.png"}:
                         self.assertFalse(name.endswith((".pdf", ".sqlite3", ".jpg", ".png", "config.json")))
                 for name in names:
                     data = archive.read(name)

@@ -32,6 +32,7 @@
       <section class="editor-pane" aria-label="简历内容编辑">
         <div id="editor"></div>
       </section>
+      <div id="panel-divider" class="panel-divider" role="separator" tabindex="0" aria-label="调整编辑区与 PDF 预览宽度；方向键调整，回车恢复均分" aria-orientation="vertical" aria-controls="editor pdf-preview"></div>
       <section class="preview-pane" aria-label="PDF 预览">
         <div class="preview-toolbar"><div><span class="preview-dot"></span>PDF 预览 <small id="preview-version"></small></div><span id="page-meta">正在排版</span></div>
         <div id="overflow-warning" hidden>当前内容超过一页，可精简文字或调小字号。导出将保留完整内容。</div>
@@ -50,5 +51,5 @@
   </dialog>
   <script src="/ui.js"></script><script src="/photo-crop.js"></script>
   <script src="/app.js"></script>
-<footer class="app-footer" aria-label="版本与开发信息"><span data-build-info>OfferWorkbench</span></footer><script src="/site-info.js"></script></body>
+<script src="/workspace-layout.js"></script><footer class="app-footer" aria-label="版本与开发信息"><span data-build-info>OfferWorkbench</span></footer><script src="/site-info.js"></script></body>
 </html>

@@ -375,6 +375,10 @@ class Handler(BaseHTTPRequestHandler):
             file = "docs/reference/" + document if document == "SALARY_POLICY_SOURCES.md" else document
             static["/docs/" + document] = (file, "text/plain; charset=utf-8")
         static["/docs/images/calendar-demo.png"] = ("docs/images/calendar-demo.png", "image/png")
+        static["/docs/images/user-journey.png"] = ("docs/images/user-journey.png", "image/png")
+        static["/docs/images/user-journey.svg"] = ("docs/images/user-journey.svg", "image/svg+xml")
+        static["/docs/USER_JOURNEY.md"] = ("docs/design/USER_JOURNEY.md", "text/plain; charset=utf-8")
+        static["/workspace-layout.js"] = ("app/frontend/js/workspace-layout.js", "text/javascript; charset=utf-8")
         static["/site-info.js"] = ("app/frontend/js/site-info.js", "text/javascript; charset=utf-8")
         static["/guide"] = ("app/frontend/guide.html", "text/html; charset=utf-8")
         static["/docs/USER_GUIDE.md"] = ("docs/USER_GUIDE.md", "text/plain; charset=utf-8")
