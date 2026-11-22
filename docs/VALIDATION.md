@@ -17,6 +17,15 @@
 
 本轮不包含 LLM、自动投递、后台提醒、BOSS 在线恢复或薪资政策重新核验。四阶段未完成条目仍保留在 PROJECT.md。
 
+## 0.6.1 发布读回
+
+- [PR #1](https://github.com/zaynwong981/offer-workbench/pull/1) 已合并；[PR CI](https://github.com/zaynwong981/offer-workbench/actions/runs/44998324102) 六组系统／Python 矩阵全部通过。
+- [发布工作流](https://github.com/zaynwong981/offer-workbench/actions/runs/44998665245) 的 Windows、macOS、Ubuntu 复验及打包发布全部通过。
+- [v0.6.1 Release](https://github.com/zaynwong981/offer-workbench/releases/tag/v0.6.1) 已公开，标签对应 `7f93c0d4ccefcd82eafadbfb72f97117b2fc26e6`。
+- 下载源码包的 79 个文件与标签 blobs 逐一相同；SHA-256：`d8bd46ca748903710107dbad0de47047c788d5d492a937504fecc78a32d73f77`。
+- 独立解压可通过 server.py 启动；首页、求职页、指引、新旧文档入口、前端脚本和 PDF.js 共 7 条 HTTP 路由通过，匿名资料可导出 1 页 PDF。
+- 本节是发布后的证据补记，不改写标签或既有 Release 附件。
+
 ---
 
 # 0.6.0 验收记录
