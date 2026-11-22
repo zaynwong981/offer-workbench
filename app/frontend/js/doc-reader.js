@@ -1,7 +1,7 @@
 /* Local Markdown reader. Source text is rendered as DOM nodes; raw HTML never runs. */
 (() => {
-  const files = { 'reference/SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md', 'README.md': '/help', 'docs/USER_GUIDE.md': '/help', 'docs/reference/SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md', 'CHANGELOG.md': '/docs/CHANGELOG.md', 'SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md' };
-  const names = { 'README.md': '完整使用文档', 'CHANGELOG.md': '版本更新记录', 'SALARY_POLICY_SOURCES.md': '薪酬政策与来源' };
+  const files = { 'USER_JOURNEY.md': '/docs/USER_JOURNEY.md', 'reference/SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md', 'README.md': '/help', 'docs/USER_GUIDE.md': '/help', 'docs/reference/SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md', 'CHANGELOG.md': '/docs/CHANGELOG.md', 'SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md' };
+  const names = { 'USER_JOURNEY.md': '用户旅程与流程对照', 'README.md': '完整使用文档', 'CHANGELOG.md': '版本更新记录', 'SALARY_POLICY_SOURCES.md': '薪酬政策与来源' };
   const make = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
   function inline(parent, text) {
     const pattern = /`([^`\n]+)`|\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^\s)]+)\)/g;
@@ -13,6 +13,7 @@
       else {
         const label = match[3], destination = match[4];
         if (files[destination]) { const link = make('a', label); link.href = files[destination]; link.dataset.docFile = destination; parent.append(link); }
+        else if (['../images/user-journey.png', '../images/user-journey.svg'].includes(destination)) { const link=make('a', label);link.href='/docs/images/'+destination.split('/').pop();link.target='_blank';link.rel='noopener';parent.append(link); }
         else {
           let url; try { url = new URL(destination); } catch {}
           if (url && ['https:', 'http:'].includes(url.protocol)) {
