@@ -1,6 +1,6 @@
 # Third-party components
 
-- Mozilla PDF.js: bundled `assets/pdf.mjs` and `assets/pdf.worker.mjs`; Apache-2.0. Full license in `assets/PDFjs-LICENSE`, source headers retained.
+- Mozilla PDF.js: bundled `app/frontend/vendor/pdfjs/pdf.mjs` and `app/frontend/vendor/pdfjs/pdf.worker.mjs`; Apache-2.0. Full license in `app/frontend/vendor/pdfjs/PDFjs-LICENSE`, source headers retained.
 - ReportLab: independently installed Python dependency, BSD-style license. No source vendored.
 - Pillow: independently installed Python dependency, HPND license. No source vendored.
 - boss-agent-cli 3.0.1: optional independent CLI, installed metadata declares MIT. No upstream source, credentials, or browser profile is included. Repository: https://github.com/can4hou6joeng4/boss-agent-cli

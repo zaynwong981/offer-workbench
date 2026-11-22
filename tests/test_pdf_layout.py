@@ -1,7 +1,7 @@
 import unittest
 import copy
-from seed import initial_state
-from server import layout_blocks, render_pdf
+from app.backend.seed import initial_state
+from app.backend.server import layout_blocks, render_pdf
 
 class PDFLayoutTests(unittest.TestCase):
     def test_labels_have_one_chinese_colon_and_space_without_rewriting_data(self):

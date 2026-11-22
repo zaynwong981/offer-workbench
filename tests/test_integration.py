@@ -10,11 +10,11 @@ import unittest
 import zipfile
 from unittest.mock import patch
 
-import server
-from boss_adapter import BossError
-from career import CareerStore
+from app.backend import server
+from app.backend.boss_adapter import BossError
+from app.backend.career import CareerStore
 from scripts.package_source import FILES, package
-from seed import initial_state
+from app.backend.seed import initial_state
 
 
 class FakeBoss:
@@ -80,6 +80,26 @@ class HTTPIntegrationTests(unittest.TestCase):
         self.assertEqual(status, 200, result)
         return result
 
+    def test_release_metadata_and_guide_keep_legacy_routes(self):
+        status, info = self.request("GET", "/api/about")
+        self.assertEqual(status, 200)
+        self.assertEqual(info["version"], server.VERSION)
+        self.assertEqual(info["updatedOn"], "2026-11-22")
+        self.assertEqual(set(info), {"name", "version", "updatedOn", "developer", "repository", "profile"})
+        for route in ("/guide", "/boss-help"):
+            status, body = self.request("GET", route)
+            self.assertEqual(status, 200)
+            for marker in (b'quick-start', b'boss-connection', b'about-project', b'app-footer'):
+                self.assertIn(marker, body)
+        status, body = self.request("GET", "/help")
+        self.assertEqual(status, 200)
+        self.assertIn("使用文档", body.decode())
+        for route in ("/api/about", "/site-info.js", "/guide"):
+            self.assertEqual(self.request("GET", route, headers={"Origin":"https://example.com"})[0], 403)
+        for path in ("/app/backend/server.py", "/RELEASE.json", "/config.local.json", "/data/resumes.json"):
+            self.assertEqual(self.request("GET", path)[0], 404)
+        self.assertEqual(self.http.boss.calls, [])
+
     def test_calendar_api_roundtrip_and_ics_without_boss(self):
         payload = {"event": {"title": "匿名面试", "kind": "interview", "start": "2026-12-01T14:00+08:00", "end": "2026-12-01T15:00+08:00"}}
         saved = self.post("/api/career/event-save", payload)["events"][0]
@@ -102,7 +122,7 @@ class HTTPIntegrationTests(unittest.TestCase):
         for route in ('/', '/career'):
             _, body = self.request('GET', route)
             html = body.decode('utf-8')
-            self.assertIn('href="/boss-help"', html)
+            self.assertIn('href="/guide"', html)
             self.assertIn('src="/ui.js"', html)
         self.assertEqual(self.http.boss.calls, [])
         self.assertEqual(self.request("GET", "/docs/config.local.json")[0], 404)
@@ -253,7 +273,7 @@ class SourceReleaseTests(unittest.TestCase):
                 for name in names:
                     data = archive.read(name)
                     self.assertIsNone(re.search(rb"/Users/[A-Za-z0-9_.-]+/", data), name)
-                seed = archive.read("offer-workbench/seed.py").decode()
+                seed = archive.read("offer-workbench/app/backend/seed.py").decode()
                 self.assertIn("你的姓名", seed)
                 profile = initial_state()["profile"]
                 self.assertEqual(profile["name"], "你的姓名")

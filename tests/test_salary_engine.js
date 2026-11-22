@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const engine = require('../salary-engine.js');
+const engine = require('../app/frontend/js/salary-engine.js');
 const cents = value => Math.round(value * 100);
 const input = extra => ({monthlyGross: 15000, ...extra});
 
@@ -137,6 +137,6 @@ test('calculation is pure and browser global matches the Node module API', () =>
     assert.deepEqual(source, original);
     assert.deepEqual(a, b);
     const context = vm.createContext({});
-    vm.runInContext(fs.readFileSync(require.resolve('../salary-engine.js'), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(require.resolve('../app/frontend/js/salary-engine.js'), 'utf8'), context);
     assert.equal(context.SalaryEngine.calculate({monthlyGross: 15000}).annual.tax, 9480);
 });

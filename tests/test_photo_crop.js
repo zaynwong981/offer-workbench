@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {cropRect} = require('../photo-crop.js');
+const {cropRect} = require('../app/frontend/js/photo-crop.js');
 
 test('portrait, landscape and square crops keep the 5:7 ratio inside image boundaries', () => {
   for (const [w,h] of [[500,700],[1600,900],[900,1600],[800,800]]) {

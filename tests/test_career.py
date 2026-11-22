@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from career import CareerStore, validate_preferences, _salary_range
+from app.backend.career import CareerStore, validate_preferences, _salary_range
 
 
 RESUMES = {"education": [], "versions": [

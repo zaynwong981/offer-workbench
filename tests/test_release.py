@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from scripts.demo import create_demo
 from scripts.snapshot import snapshot,restore
-from career import CareerStore
+from app.backend.career import CareerStore
 
 class ReleaseTests(unittest.TestCase):
     def test_demo_snapshot_restore_and_corruption_refusal(self):

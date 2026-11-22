@@ -11,7 +11,7 @@ import re
 import sqlite3
 from urllib.parse import urlsplit
 import uuid
-from schedule import validate_event, conflicts
+from .schedule import validate_event, conflicts
 
 
 STATUSES = {
