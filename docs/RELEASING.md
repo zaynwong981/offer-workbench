@@ -10,7 +10,7 @@
 
 ## 发布
 
-1. 更新 VERSION、CHANGELOG、PROJECT 和 docs/VALIDATION；确认合成演示在独立目录可用。
+1. 更新 VERSION、RELEASE.json 的日期、CHANGELOG、PROJECT 和 docs/VALIDATION；每个大版本围绕最新完整求职流程重写 README，更新合成演示，不把单个新功能当成产品全貌。确认演示在独立目录可用、视频不出现个人路径。
 2. `python scripts/privacy_check.py`；完整 Python／Node 回归；真实浏览器验收。确认 Git 跟踪列表与白名单一致，人工检查新增公开内容。
 3. 推送开发分支，等待 GitHub Actions 的各系统矩阵通过。macOS 本地通过不等于 Windows/Linux 通过。
 4. 合并后在确切提交创建签注标签，如 `git tag -a v0.6.0 -m "OfferWorkbench 0.6.0"`，推送标签。
