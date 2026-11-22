@@ -19,3 +19,11 @@
 不在本轮验收范围：BOSS 在线恢复、LLM 接入、后台提醒、跨时区选择与日历双向同步。首次公开代码版本尚无上一公开版本；回滚机制已用合成资料演练，不伪造历史标签。
 
 个人部署升级前已备份；升级后简历 SHA-256 不变，jobs／settings／activity 逐表一致，原 PDF 导出配置保留。此处不公开任何个人数据或路径。
+
+## 发布读回（2026-11-22）
+
+- [v0.6.0 Release](https://github.com/zaynwong981/offer-workbench/releases/tag/v0.6.0) 已公开；标签对应 `ec298ad3b958b60ca9df5decec49661a2dca0a07`。
+- [发布工作流](https://github.com/zaynwong981/offer-workbench/actions/runs/44992063831) 三系统复验通过并发布源码包和 SHA256SUMS.txt。
+- 下载公开包核对：71 个文件与标签 Git blobs 逐一一致；没有本地配置和个人数据；独立解压目录可导入服务并用匿名初始资料渲染 PDF。
+- 源码包 SHA-256：`00a18cdc570251f05ab5e0bd0e1775d51645343edc8baab675a1a599dd9ff4af`。
+- 本页发布读回记录属于后续文档提交，不重写已发布标签或 Release 文件。
