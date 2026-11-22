@@ -1,6 +1,6 @@
 /* Local Markdown reader. Source text is rendered as DOM nodes; raw HTML never runs. */
 (() => {
-  const files = { 'README.md': '/help', 'CHANGELOG.md': '/docs/CHANGELOG.md', 'SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md' };
+  const files = { 'reference/SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md', 'README.md': '/help', 'docs/USER_GUIDE.md': '/help', 'docs/reference/SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md', 'CHANGELOG.md': '/docs/CHANGELOG.md', 'SALARY_POLICY_SOURCES.md': '/docs/SALARY_POLICY_SOURCES.md' };
   const names = { 'README.md': '完整使用文档', 'CHANGELOG.md': '版本更新记录', 'SALARY_POLICY_SOURCES.md': '薪酬政策与来源' };
   const make = (tag, text, className) => { const el = document.createElement(tag); if (text !== undefined) el.textContent = text; if (className) el.className = className; return el; };
   function inline(parent, text) {

@@ -9,8 +9,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const SOURCE = fs.readFileSync(path.join(ROOT, 'career.js'), 'utf8');
-const HTML = fs.readFileSync(path.join(ROOT, 'career.html'), 'utf8');
+const SOURCE = fs.readFileSync(path.join(ROOT, 'app/frontend/js/career.js'), 'utf8');
+const HTML = fs.readFileSync(path.join(ROOT, 'app/frontend/career.html'), 'utf8');
 const clone = value => JSON.parse(JSON.stringify(value));
 const decode = text => String(text ?? '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 const attr = (text, key) => decode(text.match(new RegExp('(?:^|\\s)' + key + '="([^"]*)"'))?.[1] ?? '');
@@ -131,7 +131,7 @@ async function harness(savedSession) {
   const sessionStorage = {getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, String(value)), removeItem: key => stored.delete(key)};
   const windowListeners = new Map();
   const window = {location, addEventListener(type, listener) { windowListeners.set(type, listener); }};
-  const context = vm.createContext({document, window, location, SalaryJob: require('../salary-job.js'), SalaryUI: {mount: async (host, options) => salaryMounts.push({host, options})}, history: {replaceState(_state, _title, url) { location.hash = url.includes('#') ? '#' + url.split('#')[1] : ''; }}, sessionStorage, navigator: {clipboard: {writeText: async () => {}}}, FormData: FormDataDouble, URL, URLSearchParams, Blob, console, structuredClone, setTimeout: () => 1, clearTimeout() {}, fetch: async (url, options = {}) => {
+  const context = vm.createContext({document, window, location, SalaryJob: require('../app/frontend/js/salary-job.js'), SalaryUI: {mount: async (host, options) => salaryMounts.push({host, options})}, history: {replaceState(_state, _title, url) { location.hash = url.includes('#') ? '#' + url.split('#')[1] : ''; }}, sessionStorage, navigator: {clipboard: {writeText: async () => {}}}, FormData: FormDataDouble, URL, URLSearchParams, Blob, console, structuredClone, setTimeout: () => 1, clearTimeout() {}, fetch: async (url, options = {}) => {
     const request = {url, options, payload: options.body ? JSON.parse(options.body) : undefined}; calls.push(request);
     const result = await handler(request);
     if (result && Object.hasOwn(result, 'ok')) return result;

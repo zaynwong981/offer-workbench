@@ -124,19 +124,16 @@
     const {draft, policies} = state;
     const cityOptions = Object.entries(policies.cities).map(([id, city]) => `<option value="${esc(id)}" ${draft.city === id ? 'selected' : ''}>${esc(city.name)}</option>`).join('');
     state.container.innerHTML = `<section class="salary-workspace" aria-label="薪酬与税后收入计算器">
-      <div class="salary-intro"><p><strong>相同税前薪酬，换一座城市会剩下多少？</strong><br>两地使用同一套个税税率，差异主要来自社保、公积金缴费。先试算，再用 Offer 或工资条中的实际参数校准。</p><span class="tag blue">仅在当前浏览器本机保存</span></div>
-      <p class="salary-reference-period" id="salary-reference-period"></p>
-      <div class="salary-source-note" id="salary-source-note" hidden></div><div class="salary-range-actions" id="salary-range-actions" hidden></div>
       <div class="salary-layout"><section class="panel salary-input-panel"><div class="panel-heading"><h2>设置薪酬方案</h2><button type="button" class="text-button" data-salary-action="reset">重置示例</button></div>
-      <form id="salary-form" novalidate><div class="salary-form-grid">
+      <form id="salary-form" novalidate><details id="salary-context" hidden><summary>来源与参数待核对项</summary><div class="salary-source-note" id="salary-source-note" hidden></div></details><div class="salary-range-actions" id="salary-range-actions" hidden></div><div class="salary-form-grid">
         <label for="salary-city">缴费城市<select id="salary-city" name="city">${cityOptions}</select></label>
         ${field('monthlyGross', '税前月薪（元）', draft.monthlyGross)}
         ${field('salaryMonths', '全年发薪月数', draft.salaryMonths, 12, 24, '0.5')}
         ${field('additionalBonus', '多薪以外的额外奖金（元/年）', draft.additionalBonus)}
-      </div><p class="salary-help">切换城市会重新应用该城市参考缴费参数；手动调整前请先选好城市。按全年 12 个月固定工资估算，超过 12 薪的部分与额外奖金合计，假设在 12 月发放。</p>
+      </div><p class="salary-help">切换城市会重置参考缴费参数。额外薪酬按 12 月发放估算。</p>
       <div class="salary-quick-row" aria-label="发薪月数快捷设置">${[12, 13, 14, 16].map(n => `<button type="button" data-salary-months="${n}">${n} 薪</button>`).join('')}</div>
       <label for="salary-bonusMode">额外薪酬计税方式<select name="bonusMode" id="salary-bonusMode"><option value="merged" ${draft.bonusMode === 'merged' ? 'selected' : ''}>并入工资，累计预扣（默认）</option><option value="separate" ${draft.bonusMode === 'separate' ? 'selected' : ''}>符合条件的全年一次性奖金单独计税</option></select></label>
-      <p class="salary-help">“13/14 薪”不自动等于全年一次性奖金。单独计税须符合政策且本年度未使用过该方式，现行政策延续至 2027 年底。</p>
+      <p class="salary-help">单独计税需符合奖金资格且当年未使用；13/14 薪不自动满足条件。</p>
       <div class="salary-form-grid">
         ${field('specialDeductionMonthly', '专项附加扣除（元/月）', draft.specialDeductionMonthly)}
         <label for="salary-housingRate">公积金个人缴存比例（%）<input id="salary-housingRate" name="housingRate" type="number" min="0" max="12" step="0.5" value="${esc(draft.housingRate)}"></label>
@@ -147,7 +144,7 @@
       <div id="salary-form-error" class="error-banner" role="alert" hidden></div><p id="salary-storage-status" class="salary-help">参数自动保存在当前浏览器；不会写入个人简历或向外发送。</p></form></section>
       <section class="salary-results" aria-label="税后测算结果"><div id="salary-result" aria-live="polite"></div></section></div>
       <div id="salary-city-comparison"></div><div id="salary-monthly"></div><div id="salary-policy"></div>
-      <section class="salary-model-notes" aria-label="测算说明"><h2>测算说明与适用范围</h2><div id="salary-model-notes"></div><p class="salary-footnote">本模型面向居民雇员，假设全年 12 个月由同一雇主发放固定工资、无其他综合所得。所选参考口径应用于全年，不等同于 2026 年逐月历史税单。公司申报基数、年内调基、奖金认定及个税汇算会影响实际到手。</p></section>
+      <details class="salary-model-notes" aria-label="测算说明"><summary>测算说明与适用范围</summary><p class="salary-reference-period" id="salary-reference-period"></p><div id="salary-model-notes"></div><p class="salary-footnote">本模型面向居民雇员，假设全年 12 个月由同一雇主发放固定工资、无其他综合所得。所选参考口径应用于全年，不等同于 2026 年逐月历史税单。公司申报基数、年内调基、奖金认定及个税汇算会影响实际到手。奖金单独计税政策现行执行至 2027 年底。</p></details>
     </section>`;
     state.form = state.container.querySelector('#salary-form');
     updatePlans(state);
@@ -255,6 +252,8 @@
     if (state.draft.sourceWarning) notices.push(state.draft.sourceWarning);
     if (Number(state.draft.housingRate) === 0 && state.draft.housingRate !== '') notices.push('当前公积金个人比例为 0%，按不缴存公积金测算。');
     else if (Number(state.draft.housingRate) > 0 && Number(state.draft.housingRate) < 5) notices.push('当前公积金个人比例低于常规 5% 下限，请确认单位适用的特殊缴存安排。');
+    const contextNote = state.container.querySelector('#salary-context');
+    if (contextNote) contextNote.hidden = notices.length === 0;
     note.hidden = notices.length === 0; note.textContent = notices.join(' ');
     const range = state.draft.salaryRange, rangeNode = state.container.querySelector('#salary-range-actions');
     rangeNode.hidden = !range;

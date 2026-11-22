@@ -31,7 +31,7 @@ def check(root=ROOT, tracked=True):
         data=path.read_bytes()
         # Vendored PDF.js is audited upstream source; numeric minified tables are not contacts.
         for rule,pattern in rules.items():
-            if name.startswith('assets/') and rule=='mainland phone':continue
+            if name.startswith('app/frontend/vendor/') and rule=='mainland phone':continue
             if re.search(pattern,data):failures.append((name,rule))
     return failures
 

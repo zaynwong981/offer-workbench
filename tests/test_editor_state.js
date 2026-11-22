@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8')
+const source = fs.readFileSync(path.join(__dirname, '..', 'app/frontend/js/app.js'), 'utf8')
   .replace(/const pdfEngine = import\("\/pdf\.mjs"\)\.then\(engine => \{[\s\S]*?\n\}\);/, 'const pdfEngine = Promise.resolve({});')
   .replace(/\nstart\(\);\s*$/, '');
 

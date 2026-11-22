@@ -1,8 +1,8 @@
 import tempfile
 import unittest
-from career import CareerStore
-from schedule import validate_event, conflicts, calendar_ics
-from seed import initial_state
+from app.backend.career import CareerStore
+from app.backend.schedule import validate_event, conflicts, calendar_ics
+from app.backend.seed import initial_state
 
 
 def event(**kwargs):

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {prepare} = require('../salary-job.js');
+const {prepare} = require('../app/frontend/js/salary-job.js');
 
 test('monthly range requires a deliberate endpoint choice, preserving extra salary count', () => {
     const value = prepare({salary:'20–30K·14薪',city:'深圳',company:'匿名公司'});

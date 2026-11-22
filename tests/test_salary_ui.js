@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const SalaryUI = require('../salary-ui.js');
+const SalaryUI = require('../app/frontend/js/salary-ui.js');
 
 const city = () => ({name: '测试城市', pension: {rate: .08, min: 5000, max: 28000}, medicalPlans: [{id: 'first', label: '一档', rate: .02, min: 6000, max: 30000}, {id: 'second', label: '二档', rate: .005, fixedBase: 10000}], unemployment: {rate: .002, min: 2500, max: 42000}, housing: {rate: .05, min: 2500, max: 45000}});
 const policies = () => ({cities: {shenzhen: city(), guangzhou: city()}});
@@ -104,7 +104,7 @@ test('invalid stored schemas are ignored, while incomplete numeric drafts remain
 test('an asynchronous policy response does not mount into a detached salary page', async () => {
   let resolve;
   const context = vm.createContext({URL, Intl, fetch: () => new Promise(r => { resolve = r; }), SalaryEngine: {calculate() {}}, localStorage: {getItem() { throw new Error('detached mount must not access storage'); }}});
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../salary-ui.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../app/frontend/js/salary-ui.js'), 'utf8'), context);
   const container = {innerHTML: '', isConnected: true};
   const pending = context.SalaryUI.mount(container);
   const initial = container.innerHTML;
