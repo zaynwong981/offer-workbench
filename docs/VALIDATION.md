@@ -17,7 +17,14 @@
 
 薪酬参考方案使用当前参数固定计算全年12个月；杭州社保基数／公积金含转载证据、失业个人1%按条例与税务到期答复选取，仍须按单位实际新政策核实。北京固定医保附加只扣一次，上海基本与补充分别按元取整；具体来源及合成预期值见政策来源文档。本轮未进行 BOSS 在线验收、未清风险锁。
 
-远程 PR、跨系统 CI 和 Release 状态将在发布读回后补记；此处本地通过不代替远程发布成功。
+## 0.6.2 发布读回
+
+- [PR #3](https://github.com/zaynwong981/offer-workbench/pull/3) 已合并；[PR CI](https://github.com/zaynwong981/offer-workbench/actions/runs/45032052035) 六组系统／Python矩阵全部成功。
+- [发布任务](https://github.com/zaynwong981/offer-workbench/actions/runs/45032798192) 的Windows、macOS、Ubuntu复验与发布全部通过。
+- [v0.6.2 Release](https://github.com/zaynwong981/offer-workbench/releases/tag/v0.6.2) 已公开；签注标签对应 `3ef920f13f3569fb172f4e849b04c89a11779e49`。
+- 下载包 SHA-256：`a8e3f8d9fbf40db49c80e18b1fe4e1d8e55c20a98fd5c2e3838140cf6a934f46`；83个文件与标签逐一相同，校验清单一致。
+- Git传输连接超时后使用GitHub官方Git API同步，逐个blob、tree和commit SHA与本地一致；没有绕过PR／CI。标签不改写，后续记录补记不改既有附件。
+- 本机升级前停机快照已保留；数据字节／逐表核对通过，回滚方法见RELEASING。飞书四组批注和旅程图已写回并读回，原需求和原图片不变。
 
 ---
 
