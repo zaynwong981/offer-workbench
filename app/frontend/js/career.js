@@ -624,26 +624,26 @@ async function action(button) {
     }
     if (a === "tailor") {
         captureJobDraft();
-        if (trackingDrafts.has(renderedJobKey)) {
-            if (!await confirmAction("先保存跟进，再编辑简历？", "你的跟进记录有未保存修改。确认后会保存记录，再打开岗位专属简历。")) return;
-            await api("/api/career/update", {
-                id: activeJob.id,
-                ...trackingDrafts.get(renderedJobKey)
-            });
-            trackingDrafts.delete(renderedJobKey);
-        }
-        const id = $("#target-version").value;
+        const job = {...activeJob}, key = jobDraftKey(job), id = $("#target-version").value;
+        const pendingTracking = trackingDrafts.get(key);
         if (!id) throw new Error("请先选择一个简历版本。");
-        const result = await api("/api/career/tailor", {
-            jobId: activeJob.id,
-            versionId: id
-        });
-        targetChoices.set(jobDraftKey(activeJob), result.versionId);
-        // The departing form still contains the base resume. Do not let the
-        // unload draft capture replace the newly associated target with it.
+        if (pendingTracking) {
+            if (!await confirmAction("先保存跟进，再编辑简历？", "你的跟进记录有未保存修改。确认后会保存记录，再打开岗位专属简历。")) return;
+            await api("/api/career/update", {id: job.id, ...pendingTracking});
+            if (trackingDrafts.get(key) === pendingTracking) trackingDrafts.delete(key);
+        }
+        const result = await api("/api/career/tailor", {jobId: job.id, versionId: id});
+        targetChoices.set(key, result.versionId);
+        if (!activeJob || jobDraftKey(activeJob) !== key || !$("#job-dialog").open) {
+            resumes = await api("/api/state");
+            await refresh();
+            persistSession();
+            return toast("专属简历已创建。回到这个岗位后，可继续编辑关联简历。");
+        }
+        // Keep the outgoing base selection from replacing the new target.
         renderedJobKey = "";
         persistSession();
-        window.location.assign("/?version=" + encodeURIComponent(result.versionId) + "&returnJob=" + encodeURIComponent(activeJob.id));
+        window.location.assign("/?version=" + encodeURIComponent(result.versionId) + "&returnJob=" + encodeURIComponent(job.id));
         return;
     }
     if (a === "export") {

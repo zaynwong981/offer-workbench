@@ -357,3 +357,29 @@ test('page two is sent intact and risk failure is never rendered as empty succes
   assert.doesNotMatch(h.node('content').innerHTML, /本次未返回岗位/);
   assert.equal(h.calls.filter(c => c.url === '/api/boss/search').length, 1);
 });
+
+
+test('switching jobs during tailoring keeps the copy on its original job and does not navigate away', async () => {
+  const h = await harness();
+  h.run("career.jobs = [{id:'first',title:'First',source:'manual',status:'saved',resumeId:'ai'},{id:'second',title:'Second',source:'manual',status:'saved',resumeId:'ai'}]; openJob(career.jobs[0])");
+  const state = clone(h.run('career'));
+  let finish;
+  h.setHandler(async request => {
+    if(request.url === '/api/career/tailor') {
+      assert.equal(request.payload.jobId, 'first');
+      return new Promise(resolve => {finish=resolve;});
+    }
+    if(request.url === '/api/state') return resumeState();
+    if(request.url === '/api/career/state') return state;
+    throw Error('unexpected '+request.url);
+  });
+  const pending=h.run("action({dataset:{action:'tailor'}})");
+  await tick();
+  h.run('openJob(career.jobs[1])');
+  finish({versionId:'first-copy'});
+  await pending;
+  assert.equal(h.run('activeJob.id'),'second');
+  assert.equal(h.run("targetChoices.get('first')"),'first-copy');
+  assert.notEqual(h.run("targetChoices.get('second')"),'first-copy');
+  assert.equal(h.run('location.assigned'),undefined);
+});
