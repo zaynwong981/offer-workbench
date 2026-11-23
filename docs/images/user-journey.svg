@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1540" viewBox="0 0 2400 1540" role="img" aria-labelledby="title desc"><title id="title">OfferWorkbench 用户旅程与流程对照</title><desc id="desc">八阶段真实旅程、痛点、当前能力与待办。下方对照原始多工具流程与工作台流程，不包含量化提效承诺。</desc><rect width="100%" height="100%" fill="#f7f9fc"/><style>text{font-family:"PingFang SC","Microsoft YaHei",sans-serif;fill:#203450}.muted{fill:#60738d}.head{fill:#245bcc;font-weight:600}</style>
 <text x="40" y="58" font-size="36" class="">求职过程，哪些工作可以收进一个工作台？</text>
-<text x="40" y="101" font-size="22" class="muted">OfferWorkbench · 用户旅程 / 2026-11-22 · 原始痛点来自用户反馈；情绪为推断；能力按 v0.6.2 标注</text>
+<text x="40" y="101" font-size="22" class="muted">OfferWorkbench · 用户旅程 / 2026-11-23 · 原始痛点来自用户反馈；情绪为推断；能力按 v0.7.0 标注</text>
 <rect x="180" y="130" width="266" height="48" rx="5" fill="#e4edfd"/>
 <text x="194" y="162" font-size="23" class="head">01  定义目标</text>
 <rect x="452" y="130" width="266" height="48" rx="5" fill="#e4edfd"/>
@@ -135,14 +135,14 @@
 <text x="2098" y="646" font-size="21" class="">希望决策有依据</text>
 <text x="28" y="724" font-size="20" class="head">当前工作台</text>
 <rect x="180" y="691" width="266" height="124" rx="3" fill="#edf4ff"/>
-<text x="194" y="722" font-size="21" class="">偏好多选与保存</text>
-<text x="194" y="751" font-size="21" class="">五城＋远程</text>
+<text x="194" y="722" font-size="21" class="">偏好与筛选方案保存</text>
+<text x="194" y="751" font-size="21" class="">必要／偏好／探索</text>
 <rect x="452" y="691" width="266" height="124" rx="3" fill="#edf4ff"/>
 <text x="466" y="722" font-size="21" class="">手动 JD／受限搜索</text>
 <text x="466" y="751" font-size="21" class="">保存岗位与筛选信息</text>
 <rect x="724" y="691" width="266" height="124" rx="3" fill="#edf4ff"/>
-<text x="738" y="722" font-size="21" class="">岗位详情</text>
-<text x="738" y="751" font-size="21" class="">词项匹配与原文证据</text>
+<text x="738" y="722" font-size="21" class="">列表与详情分栏</text>
+<text x="738" y="751" font-size="21" class="">浏览取舍／词项证据</text>
 <rect x="996" y="691" width="266" height="124" rx="3" fill="#edf4ff"/>
 <text x="1010" y="722" font-size="21" class="">多方向母版</text>
 <text x="1010" y="751" font-size="21" class="">岗位定制副本</text>
@@ -150,11 +150,11 @@
 <rect x="1268" y="691" width="266" height="124" rx="3" fill="#edf4ff"/>
 <text x="1282" y="722" font-size="21" class="">同页编辑与 PDF 预览</text>
 <text x="1282" y="751" font-size="21" class="">导出 PDF／本地命名</text>
-<text x="1282" y="780" font-size="21" class="">保存多个方向版本</text>
+<text x="1282" y="780" font-size="21" class="">保存导出与投递快照</text>
 <rect x="1540" y="691" width="266" height="124" rx="3" fill="#edf4ff"/>
 <text x="1554" y="722" font-size="21" class="">打开原岗位入口</text>
 <text x="1554" y="751" font-size="21" class="">本人提交后</text>
-<text x="1554" y="780" font-size="21" class="">手动记录真实状态</text>
+<text x="1554" y="780" font-size="21" class="">确认文件、渠道与时间</text>
 <rect x="1812" y="691" width="266" height="124" rx="3" fill="#edf4ff"/>
 <text x="1826" y="722" font-size="21" class="">机会状态与备注</text>
 <text x="1826" y="751" font-size="21" class="">多事件月历／议程</text>
@@ -165,21 +165,21 @@
 <text x="2098" y="780" font-size="21" class="">Offer／入职事件</text>
 <text x="28" y="854" font-size="20" class="muted">尚待优化／边界</text>
 <rect x="180" y="821" width="266" height="114" rx="3" fill="#ffffff"/>
-<text x="194" y="852" font-size="21" class="">筛选方案管理待办</text>
+<text x="194" y="852" font-size="21" class="">本地排序可查看依据</text>
 <rect x="452" y="821" width="266" height="114" rx="3" fill="#ffffff"/>
 <text x="466" y="852" font-size="21" class="">自动推荐聚合待办</text>
 <text x="466" y="881" font-size="21" class="">平台登录仍由本人</text>
 <rect x="724" y="821" width="266" height="114" rx="3" fill="#ffffff"/>
-<text x="738" y="852" font-size="21" class="">分栏与浏览历史待办</text>
-<text x="738" y="881" font-size="21" class="">排除原因待办</text>
+<text x="738" y="852" font-size="21" class="">缺失信息仍需核实</text>
+<text x="738" y="881" font-size="21" class="">关键词不等于资格</text>
 <rect x="996" y="821" width="266" height="114" rx="3" fill="#ffffff"/>
 <text x="1010" y="852" font-size="21" class="">素材库／LLM 待办</text>
 <text x="1010" y="881" font-size="21" class="">跨岗 JD 统计待办</text>
 <rect x="1268" y="821" width="266" height="114" rx="3" fill="#ffffff"/>
-<text x="1282" y="852" font-size="21" class="">不可变投递快照待办</text>
+<text x="1282" y="852" font-size="21" class="">单PDF5MB／总留档40MB</text>
 <text x="1282" y="881" font-size="21" class="">导出不代表已投递</text>
 <rect x="1540" y="821" width="266" height="114" rx="3" fill="#ffffff"/>
-<text x="1554" y="852" font-size="21" class="">渠道字段待办</text>
+<text x="1554" y="852" font-size="21" class="">反馈渠道仍待完善</text>
 <text x="1554" y="881" font-size="21" class="">不代聊、不代投</text>
 <text x="1554" y="910" font-size="21" class="">不自动上传简历</text>
 <rect x="1812" y="821" width="266" height="114" rx="3" fill="#ffffff"/>
@@ -240,6 +240,6 @@
 <rect x="2084" y="1149" width="254" height="64" rx="6" fill="#e4edfd"/>
 <text x="2094" y="1187" font-size="18" class="head">工作台薪酬比较</text>
 <text x="180" y="1251" font-size="22" class="head">已减少：岗位与简历分散管理、Word 来回排版、导出改名、进度与日程分表维护。外部通知仍需手动归拢。</text>
-<text x="180" y="1292" font-size="22" class="muted">下一步：分栏与排除历史 → 素材与可选 LLM → 投递快照／通知提取 → 项目与入职材料。</text>
+<text x="180" y="1292" font-size="22" class="muted">下一步：素材与可选 LLM → 通知提取与反馈渠道 → 项目与入职材料。</text>
 <text x="180" y="1333" font-size="21" class="muted">边界：登录、沟通、上传及最终提交由本人完成；不将导出视作投递成功；不虚构节省时间或效率百分比。</text>
 </svg>

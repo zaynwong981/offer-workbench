@@ -5,6 +5,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = [
+    'app/backend/workflow.py', 'app/frontend/js/job-workflow.js', 'app/frontend/js/job-rules.js', 'app/frontend/css/job-workflow.css', 'tests/test_workflow.py', 'tests/test_job_rules.js',
     'docs/design/USER_JOURNEY.md', 'docs/images/user-journey.svg', 'docs/images/user-journey.png',
     'app/frontend/js/workspace-layout.js',
     'docs/media/workflow-demo.gif', 'docs/media/workflow-demo.mp4',
