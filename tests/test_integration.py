@@ -84,7 +84,7 @@ class HTTPIntegrationTests(unittest.TestCase):
         status, info = self.request("GET", "/api/about")
         self.assertEqual(status, 200)
         self.assertEqual(info["version"], server.VERSION)
-        self.assertEqual(info["updatedOn"], "2026-11-22")
+        self.assertEqual(info["updatedOn"], server.RELEASE["updatedOn"])
         self.assertEqual(set(info), {"name", "version", "updatedOn", "developer", "repository", "profile"})
         for route in ("/guide", "/boss-help"):
             status, body = self.request("GET", route)
@@ -256,6 +256,38 @@ class HTTPIntegrationTests(unittest.TestCase):
         self.assertEqual(self.http.state_path.read_bytes(), before)
         self.assertFalse(self.http.boss.calls)
         self.assertEqual(self.request("GET", "/salary-policies.json", headers={"Origin": "https://example.com"})[0], 403)
+
+    def test_workflow_export_confirm_and_snapshot_download(self):
+        job=self.post("/api/career/upsert",{"job":{"description":"合成职责","url":"https://example.com/job"}})["job"]
+        version=self.request("GET","/api/state")[1]["versions"][0]["id"]
+        exported=self.post("/api/career/export",{"jobId":job["id"],"versionId":version})
+        artifact=exported["artifact"]
+        status,pdf=self.request("GET","/api/career/artifact-pdf?id="+artifact["id"])
+        self.assertEqual(status,200);self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertEqual(self.request("GET","/api/career/artifact-pdf?id="+artifact["id"],headers={"Origin":"https://example.com"})[0],403)
+        state=self.request("GET","/api/career/state")[1]
+        self.assertEqual(state["jobs"][0]["status"],"saved")
+        self.post("/api/career/submission-confirm",{"confirmed":True,"requestId":"integration-confirm-001","jobId":job["id"],"artifactId":artifact["id"],"channel":"邮件","submittedAt":"2026-01-01T12:00:00+08:00"})
+        self.assertEqual(self.request("GET","/api/career/state")[1]["jobs"][0]["status"],"applied")
+        self.assertEqual(self.request("GET","/api/career/artifact-pdf?id="+artifact["id"])[1],pdf)
+        self.assertFalse(self.http.boss.calls)
+
+    def test_workflow_assets_parallel_load(self):
+        from concurrent.futures import ThreadPoolExecutor
+        routes=["/job-workflow.js","/job-rules.js","/job-workflow.css","/career.js"]*6
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            responses=list(pool.map(lambda route:self.request("GET",route),routes))
+        self.assertTrue(all(status==200 and body for status,body in responses))
+
+    def test_full_archive_does_not_leave_untracked_export(self):
+        job=self.post("/api/career/upsert",{"job":{"title":"Demo role"}})["job"]
+        version=self.request("GET","/api/state")[1]["versions"][0]["id"]
+        before=set(server.EXPORT_DIR.glob("*"))
+        with patch.object(server.workflow, "MAX_ARCHIVE", 1):
+            status,_=self.request("POST","/api/career/export",{"jobId":job["id"],"versionId":version})
+        self.assertEqual(status,400)
+        self.assertEqual(set(server.EXPORT_DIR.glob("*")),before)
+        self.assertEqual(self.request("GET","/api/career/state")[1]["artifacts"],[])
 
 
 class SourceReleaseTests(unittest.TestCase):
