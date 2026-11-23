@@ -15,7 +15,14 @@
 
 完整回归最初在沙箱内因禁止监听本机端口失败；取得本地端口执行权限后74项全部通过，未跳过HTTP测试。当前匹配为词项规则，未接入LLM；没有BOSS在线验收、清风险锁或代投。
 
-远程PR／跨系统CI／Release、正式服务升级及飞书批注将在完成后补记；此处本地通过不代表已经发布。
+## 0.7.0 发布读回
+
+- [PR #5](https://github.com/zaynwong981/offer-workbench/pull/5) 已合并；[最新提交CI](https://github.com/zaynwong981/offer-workbench/actions/runs/45105758157)六组系统／Python矩阵全部成功，PR合并检查也通过。
+- [Release复验](https://github.com/zaynwong981/offer-workbench/actions/runs/45105975273)的Windows、macOS、Ubuntu与发布全部成功；[v0.7.0](https://github.com/zaynwong981/offer-workbench/releases/tag/v0.7.0)已公开。
+- 签注标签对应`4b4a8503a3daadd3298e529c6814564ec7b3fd53`；下载包SHA-256为`de8ca130966d58553c122d37899b8451900327139460f9918a2c83f47e94e03b`，89文件与标签逐一一致。
+- 本机停机快照后升级；简历和配置字节一致，原SQLite表逐行一致，新增表为空，PDF目录保留。升级前快照在新目录恢复并校验通过。用户原有文案提醒已整理为D007，原补丁独立保留。
+- 飞书第5节六项需求逐项追加批注，每次以最新revision局部写入并读回；原需求文字、历史批注和图片全部保留。
+- Git传输使用GitHub官方Git API，逐个核对blob、tree和commit SHA；仍走PR／CI。此处是发布后证据补记，不改标签与已有附件。
 
 ---
 
