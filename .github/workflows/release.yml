@@ -24,7 +24,7 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
       - run: node tests/test_editor_state.js
-      - run: node --test tests/test_career_ui.js tests/test_salary_engine.js tests/test_salary_ui.js tests/test_salary_job.js tests/test_photo_crop.js
+      - run: node --test tests/test_career_ui.js tests/test_salary_engine.js tests/test_salary_ui.js tests/test_salary_job.js tests/test_photo_crop.js tests/test_job_rules.js
       - run: python scripts/privacy_check.py
   publish:
     needs: validate

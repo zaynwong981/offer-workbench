@@ -12,11 +12,12 @@ import sqlite3
 from urllib.parse import urlsplit
 import uuid
 from .schedule import validate_event, conflicts
+from . import workflow
 
 
 STATUSES = {
     "saved": "待研究", "contacted": "已沟通", "applied": "已投递",
-    "interview": "面试中", "offer": "已获 Offer", "rejected": "未通过",
+    "interview": "面试中", "offer": "已获 Offer", "rejected": "招聘方未通过",
     "archived": "已归档",
 }
 DEFAULT_PREFERENCES = {
@@ -31,10 +32,11 @@ JOB_LIMITS = {
     "companySize": 200, "companyStage": 200, "workMode": 200,
     "industry": 200, "jobType": 200, "recruiterActive": 200, "fetchedAt": 100,
     "sourceId": 600, "jobId": 600, "securityId": 600, "lid": 600,
+    "sourceLabel": 100, "firstViewedAt": 100, "lastViewedAt": 100, "decision": 20, "decisionReason": 2000, "decidedAt": 100,
     "notes": 20000, "resumeId": 200, "nextAction": 2000, "nextDate": 10,
 }
 JOB_LIST_FIELDS = ("skills", "welfare")
-TRACKING_FIELDS = ("status", "notes", "resumeId", "nextAction", "nextDate", "lastExport")
+TRACKING_FIELDS = ("status", "notes", "resumeId", "nextAction", "nextDate", "lastExport", "firstViewedAt", "lastViewedAt", "decision", "decisionReason", "decidedAt", "preparation")
 TERMS = {
     "AI／大模型": ["AI", "AIGC", "LLM", "大模型", "人工智能"],
     "Agent": ["Agent", "智能体", "Dify"],
@@ -118,7 +120,17 @@ def validate_job(value, partial=False):
         elif not partial:
             job[key] = []
     if not partial and not job["title"]:
-        raise ValueError("请填写岗位名称。")
+        if not (job.get("description") or job.get("url")):
+            raise ValueError("先粘贴职位描述或岗位链接，其他信息可以稍后补齐。")
+        job["title"] = "岗位名称待补充"
+    if value.get("decision") and value["decision"] not in workflow.DECISIONS:
+        raise ValueError("取舍记录不正确。")
+    if "preparation" in value:
+        raw=value["preparation"]
+        if not isinstance(raw,dict): raise ValueError("岗位准备内容格式不正确。")
+        works=raw.get("works",[])
+        if not isinstance(works,list) or len(works)>20 or any(not isinstance(w,dict) for w in works): raise ValueError("作品列表格式不正确。")
+        job["preparation"]={"greeting":workflow.text(raw.get("greeting",""),"沟通文字",10000),"submitUrl":workflow.url(raw.get("submitUrl","")),"works":[{"label":workflow.text(w.get("label",""),"作品名称",100),"url":workflow.url(w.get("url",""))} for w in works]}
     if job.get("url"):
         parts = urlsplit(job["url"])
         if parts.scheme not in ("http", "https") or not parts.hostname or parts.username or parts.password:
@@ -264,6 +276,7 @@ class CareerStore:
                   job_id TEXT NOT NULL, kind TEXT NOT NULL, at TEXT NOT NULL, detail TEXT NOT NULL,
                   FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE);
             """)
+            workflow.setup(db)
 
     @contextmanager
     def _db(self):
@@ -308,13 +321,15 @@ class CareerStore:
         stats["due"] = sum(bool(job.get("nextDate")) and job["nextDate"] <= today and job["status"] not in ("rejected", "archived") for job in jobs)
         events = [json.loads(row[0]) for row in db.execute("SELECT data FROM events ORDER BY id")]
         return {"preferences": self._preferences(db), "jobs": jobs, "stats": stats, "statuses": STATUSES,
-                "events": events, "conflicts": conflicts(events)}
+                "events": events, "conflicts": conflicts(events), **workflow.extra_state(db)}
 
     def dispatch(self, route, payload, resume_state):
         if not isinstance(payload, dict):
             raise ValueError("请求格式不正确。")
         action = route.removeprefix("/api/career/")
         with self._db() as db:
+            if action in ("view", "decision", "preparation", "plan-save", "plan-delete", "artifact", "submission-confirm"):
+                return workflow.dispatch(self,db,action,payload,resume_state)
             if action in ("event-save", "event-delete", "event-check"):
                 if action == "event-delete":
                     raw = payload.get("event", {})
@@ -347,11 +362,11 @@ class CareerStore:
                 return self._state(db, resume_state=resume_state)
             if action == "backup":
                 state = self._state(db, full_history=True, resume_state=resume_state)
-                return {"schemaVersion": 2, "kind": "career-studio", "exportedAt": _now(),
-                        "preferences": state["preferences"], "jobs": state["jobs"], "events": state["events"]}
+                return {"schemaVersion": 3, "kind": "career-studio", "exportedAt": _now(),
+                        "preferences": state["preferences"], "jobs": state["jobs"], "events": state["events"], **workflow.extra_state(db, full=True)}
             if action == "import":
                 backup = payload.get("backup")
-                if not isinstance(backup, dict) or backup.get("schemaVersion") not in (1, 2) or backup.get("kind") != "career-studio":
+                if not isinstance(backup, dict) or backup.get("schemaVersion") not in (1, 2, 3) or backup.get("kind") != "career-studio":
                     raise ValueError("请选择求职工作台导出的备份。")
                 prefs = validate_preferences(backup.get("preferences"))
                 raw_jobs = backup.get("jobs")
@@ -395,8 +410,11 @@ class CareerStore:
                         raise ValueError("日程编号重复或关联机会不存在。")
                     event_ids.add(event["id"])
                     events.append(event)
+                extras = workflow.validate_extra_backup(backup, seen)
                 # Validation finishes before any deletion; all replacements commit
                 # together, or the original opportunity collection is retained.
+                db.execute("DELETE FROM submissions")
+                db.execute("DELETE FROM artifacts")
                 db.execute("DELETE FROM events")
                 db.execute("DELETE FROM jobs")
                 db.execute("INSERT INTO settings VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", ("preferences", json.dumps(prefs, ensure_ascii=False)))
@@ -406,6 +424,7 @@ class CareerStore:
                         db.execute("INSERT INTO activity (job_id, kind, at, detail) VALUES (?, ?, ?, ?)", (job["id"], event["type"], event["at"], event["detail"]))
                 for event in events:
                     db.execute("INSERT INTO events VALUES (?, ?, ?)", (event["id"], event["jobId"] or None, json.dumps(event, ensure_ascii=False)))
+                workflow.restore_extra(db, extras)
                 return {"imported": len(imported), **self._state(db, resume_state=resume_state)}
             if action == "preferences":
                 prefs = validate_preferences(payload.get("preferences"))
@@ -445,6 +464,7 @@ class CareerStore:
                         preserve = key not in raw if mode == "edit" else not job.get(key)
                         if key in TRACKING_FIELDS or preserve:
                             job[key] = previous.get(key, [] if key in JOB_LIST_FIELDS else "")
+                    if "preparation" in previous: job["preparation"] = previous["preparation"]
                     job["status"] = previous["status"]
                     job["createdAt"] = previous["createdAt"]
                     if previous.get("lastExport"):
@@ -458,6 +478,8 @@ class CareerStore:
                     job["status"] = "saved"
                     job["createdAt"] = now
                 changes = validate_job({key: payload[key] for key in TRACKING_FIELDS if key in payload}, partial=True)
+                if changes.get("status") == "applied" and job.get("status") != "applied":
+                    raise ValueError("请在岗位准备区确认实际提交，并选择当时使用的PDF，投递记录才有对应版本。")
                 job.update(changes)
                 if "resumeId" in changes or not old:
                     self._validate_resume(job.get("resumeId"), resume_state)
@@ -470,6 +492,8 @@ class CareerStore:
                 job_id = _text(payload.get("id"), "id", 720)
                 job = self._get_job(db, job_id)
                 if action == "delete":
+                    if db.execute("SELECT 1 FROM submissions WHERE job_id=?",(job_id,)).fetchone():
+                        raise ValueError("这个机会有投递留档，请改为归档，保留当时提交的简历。")
                     db.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
                     return {"deleted": job_id}
                 changes = validate_job({key: payload[key] for key in TRACKING_FIELDS if key in payload}, partial=True)
@@ -482,6 +506,8 @@ class CareerStore:
                     detail.append("更新跟进记录")
                 if "lastExport" in changes:
                     detail.append("导出岗位专属 PDF（未自动投递）")
+                if changes.get("status") == "applied" and job.get("status") != "applied":
+                    raise ValueError("请在岗位准备区确认实际提交，并选择当时使用的PDF，投递记录才有对应版本。")
                 job.update(changes)
                 job.pop("history", None)
                 job.pop("historyTotal", None)

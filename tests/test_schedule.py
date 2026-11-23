@@ -61,7 +61,7 @@ class ScheduleTests(unittest.TestCase):
     def test_backup_roundtrip_atomic_validation_and_legacy(self):
         self.call('event-save',event=event())
         backup=self.call('backup')
-        self.assertEqual(backup['schemaVersion'],2)
+        self.assertEqual(backup['schemaVersion'],3)
         with self.assertRaises(ValueError):self.call('import',backup={**backup,'events':[dict(backup['events'][0],jobId='missing')]})
         self.assertEqual(self.call('backup')['events'],backup['events'])
         self.call('import',backup=backup)

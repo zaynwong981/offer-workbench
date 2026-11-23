@@ -15,9 +15,9 @@ import zipfile
 import uuid
 from datetime import datetime
 from html import escape
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as BaseThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, parse_qs
 
 from PIL import Image
 from reportlab.lib import colors
@@ -33,6 +33,7 @@ from .seed import initial_state
 from .boss_adapter import BossAdapter, BossError
 from .career import CareerStore
 from .schedule import calendar_ics
+from . import workflow
 VERSION = (Path(__file__).resolve().parents[2] / "VERSION").read_text(encoding="utf-8").strip()
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -312,6 +313,11 @@ def commit_resume(path, state, previous):
     atomic_json(path, state)
 
 
+class ThreadingHTTPServer(BaseThreadingHTTPServer):
+    # Chrome may prefetch several independent local scripts on navigation.
+    request_queue_size = 64
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
@@ -362,6 +368,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(result)
             except (ValueError, KeyError, TypeError) as error:
                 return self.send({"error": str(error)}, status=400)
+        if route == "/api/career/artifact-pdf":
+            try:
+                ident=parse_qs(urlparse(self.path).query).get("id",[""])[0]
+                with LOCK:
+                    a=self.server.career.dispatch("/api/career/artifact",{"id":ident},{})
+                return self.send(base64.b64decode(a["pdfBase64"]),"application/pdf",extra={"Content-Disposition":"inline; filename*=UTF-8''"+quote(a["filename"])})
+            except (ValueError,KeyError,TypeError) as error:
+                return self.send({"error":str(error)},status=400)
         if route == "/api/state":
             with LOCK:
                 return self.send(json.loads(self.server.state_path.read_text(encoding="utf-8")))
@@ -378,6 +392,9 @@ class Handler(BaseHTTPRequestHandler):
         static["/docs/images/user-journey.png"] = ("docs/images/user-journey.png", "image/png")
         static["/docs/images/user-journey.svg"] = ("docs/images/user-journey.svg", "image/svg+xml")
         static["/docs/USER_JOURNEY.md"] = ("docs/design/USER_JOURNEY.md", "text/plain; charset=utf-8")
+        static["/job-workflow.js"] = ("app/frontend/js/job-workflow.js", "text/javascript; charset=utf-8")
+        static["/job-rules.js"] = ("app/frontend/js/job-rules.js", "text/javascript; charset=utf-8")
+        static["/job-workflow.css"] = ("app/frontend/css/job-workflow.css", "text/css; charset=utf-8")
         static["/workspace-layout.js"] = ("app/frontend/js/workspace-layout.js", "text/javascript; charset=utf-8")
         static["/site-info.js"] = ("app/frontend/js/site-info.js", "text/javascript; charset=utf-8")
         static["/guide"] = ("app/frontend/guide.html", "text/html; charset=utf-8")
@@ -393,14 +410,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send({"error": "请求来源或格式不正确。"}, status=403)
         try:
             length = int(self.headers.get("Content-Length", 0))
-            if not 0 < length <= 8_000_000:
+            maximum = 64 * 1024 * 1024 if urlparse(self.path).path == "/api/career/import" else 8_000_000
+            if not 0 < length <= maximum:
                 raise ValueError("请求文件过大。")
             payload = json.loads(self.rfile.read(length))
             if not isinstance(payload, dict):
                 raise ValueError("请求需为 JSON 对象。")
             route = urlparse(self.path).path
             allowed_routes = {"/api/save", "/api/pdf", "/api/export-pdf", "/api/export-all", "/api/boss/search", "/api/boss/detail"}
-            allowed_routes.update("/api/career/" + action for action in ("preferences", "upsert", "update", "delete", "match", "import", "tailor", "export", "event-save", "event-delete", "event-check"))
+            allowed_routes.update("/api/career/" + action for action in ("preferences", "upsert", "update", "delete", "match", "import", "tailor", "export", "event-save", "event-delete", "event-check", "view", "decision", "preparation", "plan-save", "plan-delete", "submission-confirm"))
             if route not in allowed_routes:
                 return self.send({"error": "接口不存在。"}, status=404)
             if route == "/api/boss/search":
@@ -471,8 +489,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.send({"versionId": tailored["id"], "name": tailored["name"], "message": "已复制经历，可结合匹配缺口人工调整；未自动改写事实。"})
         pdf, meta = render_pdf(state, version)
         path = save_export(filename(state, version), pdf)
+        try:
+            artifact = workflow.record_artifact(self.server.career, job, state, version, pdf, Path(path).name, meta["pages"])
+        except (ValueError, OSError):
+            # A failed archive must not leave an apparently successful export.
+            Path(path).unlink(missing_ok=True)
+            raise
         self.server.career.dispatch("/api/career/update", {"id": job["id"], "resumeId": version["id"], "lastExport": {"path": path, "versionId": version["id"], "exportedAt": datetime.now().astimezone().isoformat(timespec="seconds")}}, state)
-        return self.send({"files": [path], "directory": str(EXPORT_DIR), **meta})
+        return self.send({"files": [path], "directory": str(EXPORT_DIR), "artifact": artifact, **meta})
 
 
 def main():

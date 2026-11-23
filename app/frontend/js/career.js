@@ -13,7 +13,7 @@ const statuses = {
     applied: "已投递",
     interview: "面试中",
     offer: "Offer",
-    rejected: "已拒绝",
+    rejected: "招聘方未通过",
     archived: "已归档"
 };
 const sessionKey = "career-studio-session-v3";
@@ -61,7 +61,7 @@ const titles = {
     calendar: ["CAREER CALENDAR", "求职日历", "面试、笔试与截止时间，按北京时间统一安排。"],
     overview: ["CAREER OVERVIEW", "工作台", "从筛选到准备，在一个地方完成。"],
     search: ["DISCOVER OPPORTUNITIES", "找岗位", "按次检索 BOSS，或粘贴职位描述开始评估。"],
-    pipeline: ["OPPORTUNITY PIPELINE", "把机会推进到下一步", "记录沟通、投递和面试；已拒绝的机会也有迹可循。"],
+    pipeline: ["OPPORTUNITY PIPELINE", "机会管理", "已保存的岗位、准备材料和投递记录都在这里。"],
     salary: ["SALARY & TAKE-HOME PAY", "薪酬与个税", "北上广深杭同薪比较，拆开看个税、社保和公积金。"],
     preferences: ["YOUR PREFERENCES", "先定义你的好机会", "保留多个探索方向，再用实际岗位校准偏好。"]
 };
@@ -252,7 +252,7 @@ function renderOverview() {
     const upcoming = (career.events || []).filter(e => e.status === "planned").sort((a,b) => a.start.localeCompare(b.start)).slice(0,5);
     const scheduleSummary = `<section class="panel"><div class="panel-heading"><h2>日程与截止时间</h2><button class="text-button" data-tab="calendar">打开日历 →</button></div>${upcoming.length ? upcoming.map(e=>`<div class="due-item"><div class="grow"><strong>${esc(e.title)}</strong><p>${esc(CalendarUI.when(e))}</p></div><button class="secondary" data-tab="calendar">查看</button></div>`).join("") : '<p class="hint">面试和笔试可以分别记录，多轮安排会保留在同一岗位下。</p>'}${(career.conflicts||[]).length ? `<p class="draft-hint">有 ${career.conflicts.length} 组时间冲突，请到日历核对。</p>` : ""}</section>`;
     const due = current.filter(j => j.nextAction || j.nextDate).sort((a, b) => (a.nextDate || "9999").localeCompare(b.nextDate || "9999")).slice(0, 6);
-    $("#content").innerHTML = scheduleSummary + `<div class="stats">${[["机会池",jobs.length],["正在跟进",current.length],["面试中",jobs.filter(j=>j.status==="interview").length],["简历版本",resumes.versions.length]].map(([l,n])=>`<div class="stat"><span>${l}</span><strong>${n}</strong></div>`).join("")}</div><div class="two-col"><div class="panel"><div class="panel-heading"><h2>你的求职流程</h2><span class="tag">随时可继续</span></div>${[["01","设定期待","城市、薪资和岗位方向支持组合选择，也能保留模糊偏好。","preferences","调整偏好"],["02","发现与评估","搜索岗位或粘贴 JD，查看硬条件与简历中的真实匹配证据。","search","寻找机会"],["03","准备并推进","选择简历方向，复制专属版本，导出 PDF 后在原平台沟通。","pipeline","管理机会"],["04","比较到手待遇","按北上广深杭参考缴费参数，比较税后月薪与全年到手。","salary","测算薪酬"]].map(([n,h,p,t,b])=>`<div class="step"><span class="step-number">${n}</span><div><h3>${h}</h3><p>${p}</p><button class="text-button" data-tab="${t}">${b} →</button></div></div>`).join("")}</div><div class="panel"><div class="panel-heading"><h2>下一步行动</h2><button class="text-button" data-tab="pipeline">查看全部 →</button></div>${due.length?due.map(j=>`<div class="due-item"><div class="grow"><strong>${esc(j.nextAction||"跟进机会")}</strong><p>${esc(j.company)} · ${esc(j.title)}<br>${esc(j.nextDate||"日期待定")}</p></div><button class="secondary" data-action="open-saved" data-id="${esc(j.id)}">继续</button></div>`).join(""):empty("把下一步写下来","在机会详情中记录下一步行动和日期，这里会显示待办。")}</div></div><div class="panel"><div class="panel-heading"><h2>工具连接</h2><span class="tag ${connection.available?"":"warn"}">${connection.available?"BOSS CLI 已安装":"BOSS CLI 未就绪"}</span></div><p class="muted">${esc(connection.message||"连接状态尚未检查。手动添加岗位、匹配与导出始终可用。")}</p><div class="note">沟通和投递在招聘原页面中完成，再手动更新机会状态。工具不会自动发送消息、交换联系方式或上传简历。</div><button class="secondary" data-action="open-connection-help">连接与使用说明</button></div>`;
+    $("#content").innerHTML = scheduleSummary + `<div class="stats">${[["机会池",jobs.length],["正在跟进",current.length],["面试中",jobs.filter(j=>j.status==="interview").length],["简历版本",resumes.versions.length]].map(([l,n])=>`<div class="stat"><span>${l}</span><strong>${n}</strong></div>`).join("")}</div><div class="two-col"><div class="panel"><div class="panel-heading"><h2>你的求职流程</h2><span class="tag">随时可继续</span></div>${[["01","设定期待","城市、薪资和岗位方向支持组合选择，也能保留模糊偏好。","preferences","调整偏好"],["02","发现与评估","搜索岗位或粘贴 JD，查看硬条件与简历中的真实匹配证据。","search","寻找机会"],["03","准备并推进","选择简历方向，复制专属版本，导出 PDF 后在原平台沟通。","pipeline","管理机会"],["04","比较到手待遇","按北上广深杭参考缴费参数，比较税后月薪与全年到手。","salary","测算薪酬"]].map(([n,h,p,t,b])=>`<div class="step"><span class="step-number">${n}</span><div><h3>${h}</h3><p>${p}</p><button class="text-button" data-tab="${t}">${b} →</button></div></div>`).join("")}</div><div class="panel"><div class="panel-heading"><h2>下一步行动</h2><button class="text-button" data-tab="pipeline">查看全部 →</button></div>${due.length?due.map(j=>`<div class="due-item"><div class="grow"><strong>${esc(j.nextAction||"跟进机会")}</strong><p>${esc(j.company)} · ${esc(j.title)}<br>${esc(j.nextDate||"日期待定")}</p></div><button class="secondary" data-action="open-saved" data-id="${esc(j.id)}">继续</button></div>`).join(""):empty("把下一步写下来","在机会详情中记录下一步行动和日期，这里会显示待办。")}</div></div><div class="panel"><div class="panel-heading"><h2>工具连接</h2><span class="tag ${connection.available?"":"warn"}">${connection.available?"BOSS CLI 已安装":"BOSS CLI 未就绪"}</span></div><p class="muted">${esc(connection.message||"连接状态尚未检查。手动添加岗位、匹配与导出始终可用。")}</p><div class="note">沟通和投递在原渠道完成，再回到岗位选择实际使用的PDF，确认并记录本次投递。工具不会自动发送消息、交换联系方式或上传简历。</div><button class="secondary" data-action="open-connection-help">连接与使用说明</button></div>`;
 }
 
 function searchExtraFields() {
@@ -291,7 +291,7 @@ function readSearchFilters(form) {
 
 function renderSearch() {
     const feedback = searchPending ? '<div class="search-feedback" role="status">正在读取这一页岗位…通常需要数秒，最长约 45 秒。你可以切换页面，结果会保留在这里。</div>' : searchError ? `<div class="search-feedback error-banner" role="alert">${esc(searchError)}<div class="button-row"><button class="secondary" data-action="open-connection-help">查看排障指南</button><button class="secondary" data-action="manual">先手动添加 JD</button></div></div>` : "";
-    $("#content").innerHTML = `<section class="panel"><form id="search-form" class="search-form"><label>关键词<input name="keyword" maxlength="100" value="${esc(searchValues.keyword)}" required placeholder="产品经理 SaaS"></label><label>城市<input name="city" maxlength="40" value="${esc(searchValues.city||"")}" placeholder="深圳"></label><label>页码<input name="page" type="number" min="1" max="5" value="${esc(searchValues.page)}"></label><button class="primary" type="submit" ${searchPending?"disabled":""}>${searchPending?"正在搜索…":"搜索 BOSS"}</button>${searchExtraFields()}</form>${feedback}<p class="hint">每次点击搜索都会跳过 CLI 缓存，查询一个关键词组合、一个城市和一页结果。切换页签会保留条件；刷新页面不会自动重查。</p><details><summary class="muted">连接说明与搜索边界</summary><p class="note">需要已运行、支持 CDP 的 Chrome，且官方 BOSS 页面已登录。遇到登录或风控提示，请在原网页处理；不要连续重试。也可以手动添加岗位。</p></details></section><div class="search-summary"><h2>搜索结果</h2><p>${esc(resultInfo||"尚未发起搜索")}</p></div><div id="search-results">${results.length?`<div class="job-list">${results.map((j,i)=>jobCard(j,i)).join("")}</div>`:empty(searchCompleted?"本次未返回岗位":searchPending?"正在读取岗位":searchError?"本次未取回岗位":"从一个关键词开始",searchCompleted?"暂不能确认是真实空页还是会话或分页异常。请在专用 Chrome 核对相同搜索条件、登录状态和下一页；勿连续重试。":"也可以把其他招聘平台的职位描述粘贴进来，统一管理和评估。",'<button class="secondary" data-action="manual">手动添加岗位</button>')}</div>`;
+    $("#content").innerHTML = `<section class="panel"><form id="search-form" class="search-form"><label>关键词<input name="keyword" maxlength="100" value="${esc(searchValues.keyword)}" required placeholder="产品经理 SaaS"></label><label>城市<input name="city" maxlength="40" value="${esc(searchValues.city||"")}" placeholder="深圳"></label><label>页码<input name="page" type="number" min="1" max="5" value="${esc(searchValues.page)}"></label><button class="primary" type="submit" ${searchPending?"disabled":""}>${searchPending?"正在搜索…":"搜索 BOSS"}</button>${searchExtraFields()}</form>${feedback}<p class="hint">每次搜索读取一页岗位。切换页面会保留条件和结果；刷新页面不会重新搜索。</p><details><summary class="muted">连接说明与搜索边界</summary><p class="note">先按使用指引打开专用 Chrome 并登录 BOSS。遇到登录验证或环境异常时，回到原网页处理；也可以先粘贴 JD 保存岗位。</p></details></section><div class="search-summary"><h2>搜索结果</h2><p>${esc(resultInfo||"尚未发起搜索")}</p></div><div id="search-results">${results.length?`<div class="job-list">${results.map((j,i)=>jobCard(j,i)).join("")}</div>`:empty(searchCompleted?"本次未返回岗位":searchPending?"正在读取岗位":searchError?"本次未取回岗位":"从一个关键词开始",searchCompleted?"暂不能确认是真实空页还是会话或分页异常。请在专用 Chrome 核对相同搜索条件、登录状态和下一页；勿连续重试。":"也可以把其他招聘平台的职位描述粘贴进来，统一管理和评估。",'<button class="secondary" data-action="manual">手动添加岗位</button>')}</div>`;
     $("#search-form").onsubmit = async e => {
         e.preventDefault();
         if (searchPending) return;
@@ -454,7 +454,7 @@ function renderJob() {
             ...(trackingDrafts.get(renderedJobKey) || {})
         },
         url = safeUrl(j.url);
-    $("#job-detail").innerHTML = `<h1>${esc(j.title||"岗位详情")}</h1><p class="company">${esc(j.company||"公司待核实")} · <span class="salary">${esc(j.salary||(j.source==="boss"?"未读取到薪资":"薪资待核实"))}</span></p><div class="job-meta">${[j.city,j.district,j.address].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join(" · ")}${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">打开招聘原页面 ↗</a>`:""}</div><div class="button-row salary-job-entry"><button class="secondary" data-action="salary-job">测算这个岗位的税后收入 →</button><span class="hint">按招聘薪资带入，范围薪资由你选择金额。</span></div><div id="job-error" class="error-banner" role="alert" hidden></div><div class="detail-grid"><div><section class="panel"><div class="panel-heading"><h2>职位描述</h2><div class="button-row"><button class="secondary" data-action="edit-job">修改岗位资料</button>${j.source==="boss"&&(j.securityId||j.canFetchDetail)?'<button class="secondary" data-action="fetch-detail">获取详情</button>':""}</div></div><div class="description">${esc(j.description||"尚未获取完整职位描述，请获取详情后再评估。")}</div></section><section class="panel"><div class="panel-heading"><h2>匹配解读</h2><button class="primary" data-action="match">分析匹配</button></div><p class="hint">按当前偏好与简历原文分析；覆盖度只衡量关键词出现情况。</p><div id="matching">${matching?renderMatch(matching):empty("把判断建立在证据上","查看各方向简历的已有经验、缺失词和需要进一步核实的条件。")}</div></section></div><div><section class="panel"><h2>机会与简历</h2>${saved?'<button class="secondary" data-action="calendar-job">安排面试／笔试日程 →</button>':""}<div class="detail-controls"><p class="hint">${saved?"本机机会记录已保存。":"先加入机会池，再管理简历与跟进。"}</p>${saved?`<form id="job-update-form" class="detail-controls"><p id="job-dirty" class="draft-hint" ${trackingDrafts.has(renderedJobKey)?"":"hidden"}>跟进尚未保存；当前页面内保留。</p><label>当前进度<select name="status">${statusOptions(j.status)}</select></label><label>关联简历<select name="resumeId"><option value="">暂不关联</option>${j.resumeMissing?`<option value="${esc(j.resumeId)}" selected>原关联简历已不存在，请重新选择</option>`:""}${versionOptions(j.resumeId)}</select></label><label>下一步行动<input name="nextAction" maxlength="1000" value="${esc(j.nextAction||"")}" placeholder="例如：确认社招资格与办公地址"></label><label>计划日期<input name="nextDate" type="date" value="${esc(j.nextDate||"")}"></label><label>沟通 / 面试备注<textarea name="notes" rows="5" maxlength="20000" placeholder="沟通记录、笔试题、面试复盘、拒绝原因">${esc(j.notes||"")}</textarea></label><button class="primary" type="submit">保存跟进</button></form>`:'<button class="primary" data-action="save-active">＋ 加入机会池</button>'}${j.resumeMissing?'<p class="draft-hint">原关联简历已不存在，系统不会替你改选其他版本。请选择新版本后再导出。</p>':""}<label>制作或导出的简历版本<select id="target-version"><option value="">请选择简历版本</option>${versionOptions(selectedTarget(j))}</select></label><div class="button-row"><button class="secondary" data-action="tailor" ${saved?"":"disabled"}>复制为岗位专属版本</button><button class="secondary" data-action="export" ${saved?"":"disabled"}>导出 PDF</button></div>${saved && resumes.versions.some(v=>v.id===j.resumeId)?`<a class="secondary linked-resume" href="/?version=${encodeURIComponent(j.resumeId)}&returnJob=${encodeURIComponent(j.id)}">继续编辑关联简历 ↗</a>`:""}<p class="hint">复制会保留原有内容；在编辑器中根据岗位手动微调，不自动编造经验。</p><div id="export-result" hidden></div></div></section><section class="panel"><h2>沟通与面试准备</h2><p class="hint">以下是准备提纲，可自行修改；工作台不会发送消息。</p><textarea id="contact-draft" rows="5">${esc(contactDrafts.get(renderedJobKey)??contactDraft(j))}</textarea><button class="text-button" data-action="copy-draft">复制沟通提纲</button><ul class="prep-list"><li>用一段真实经历说明与岗位职责的关联。</li><li>准备一个包含本人职责、关键决策、结果与证据的案例。</li><li>核实岗位资格、实际办公地点、薪资结构和团队分工。</li><li>面试后将问题、反馈与下一步写入备注。</li></ul></section>${saved?`<section class="panel"><h3>跟进记录</h3>${j.lastExport?.path?`<p class="hint">最近导出：${esc(j.lastExport.exportedAt||"")}</p><div class="file-result">${esc(j.lastExport.path)}</div>`:""}<ul class="history">${list(j.history).slice(0,15).map(h=>`<li>${esc(h.at||"")}<br>${esc(textOf(h.detail)||h.type||"更新记录")}</li>`).join("")||"暂无记录"}</ul><button class="text-button danger" data-action="delete-job">删除此机会</button></section>`:""}</div></div>`;
+    $("#job-detail").innerHTML = `<h1>${esc(j.title||"岗位详情")}</h1><p class="company">${esc(j.company||"公司待核实")} · <span class="salary">${esc(j.salary||(j.source==="boss"?"未读取到薪资":"薪资待核实"))}</span></p><div class="job-meta">${[j.city,j.district,j.address].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join(" · ")}${url?`<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">打开招聘原页面 ↗</a>`:""}</div><div class="button-row salary-job-entry"><button class="secondary" data-action="salary-job">测算这个岗位的税后收入 →</button><span class="hint">按招聘薪资带入，范围薪资由你选择金额。</span></div><div id="job-error" class="error-banner" role="alert" hidden></div><div class="detail-grid"><div><section class="panel"><div class="panel-heading"><h2>职位描述</h2><div class="button-row"><button class="secondary" data-action="edit-job">修改岗位资料</button>${j.source==="boss"&&(j.securityId||j.canFetchDetail)?'<button class="secondary" data-action="fetch-detail">获取详情</button>':""}</div></div><div class="description">${esc(j.description||"还没有职位描述。可先粘贴JD补充；来自BOSS的岗位也可按需读取详情。")}</div></section><section class="panel"><div class="panel-heading"><h2>匹配解读</h2><button class="primary" data-action="match">分析匹配</button></div><p class="hint">按当前偏好与简历原文分析；覆盖度只衡量关键词出现情况。</p><div id="matching">${matching?renderMatch(matching):empty("看看哪些经历能对应岗位","查看各方向简历的已有经验、缺失词和需要进一步核实的条件。")}</div></section></div><div><section class="panel"><h2>机会与简历</h2>${saved?'<button class="secondary" data-action="calendar-job">安排面试／笔试日程 →</button>':""}<div class="detail-controls"><p class="hint">${saved?"岗位已保存，可以准备简历和材料。":"查看后会保存在本机，方便继续准备和跟进。"}</p>${saved?`<form id="job-update-form" class="detail-controls"><p id="job-dirty" class="draft-hint" ${trackingDrafts.has(renderedJobKey)?"":"hidden"}>跟进尚未保存；当前页面内保留。</p><label>招聘进度<select name="status">${statusOptions(j.status)}</select></label><label>关联简历<select name="resumeId"><option value="">暂不关联</option>${j.resumeMissing?`<option value="${esc(j.resumeId)}" selected>原关联简历已不存在，请重新选择</option>`:""}${versionOptions(j.resumeId)}</select></label><label>下一步行动<input name="nextAction" maxlength="1000" value="${esc(j.nextAction||"")}" placeholder="例如：确认社招资格与办公地址"></label><label>计划日期<input name="nextDate" type="date" value="${esc(j.nextDate||"")}"></label><label>沟通 / 面试备注<textarea name="notes" rows="5" maxlength="20000" placeholder="沟通记录、笔试题、面试复盘、拒绝原因">${esc(j.notes||"")}</textarea></label><button class="primary" type="submit">保存跟进</button></form>`:'<button class="primary" data-action="save-active">＋ 加入机会池</button>'}${j.resumeMissing?'<p class="draft-hint">原关联简历已不存在，系统不会替你改选其他版本。请选择新版本后再导出。</p>':""}<label>制作或导出的简历版本<select id="target-version"><option value="">请选择简历版本</option>${versionOptions(selectedTarget(j))}</select></label><div class="button-row"><button class="secondary" data-action="tailor" ${saved?"":"disabled"}>复制为岗位专属版本</button><button class="secondary" data-action="export" ${saved?"":"disabled"}>导出 PDF</button></div>${saved && resumes.versions.some(v=>v.id===j.resumeId)?`<a class="secondary linked-resume" href="/?version=${encodeURIComponent(j.resumeId)}&returnJob=${encodeURIComponent(j.id)}">继续编辑关联简历 ↗</a>`:""}<p class="hint">复制会保留原有内容；在编辑器中根据岗位手动微调，不自动编造经验。</p><div id="export-result" hidden></div></div></section><section class="panel"><h2>沟通与面试准备</h2><p class="hint">以下是准备提纲，可自行修改；工作台不会发送消息。</p><textarea id="contact-draft" rows="5">${esc(contactDrafts.get(renderedJobKey)??contactDraft(j))}</textarea><button class="text-button" data-action="copy-draft">复制沟通提纲</button><ul class="prep-list"><li>用一段真实经历说明与岗位职责的关联。</li><li>准备一个包含本人职责、关键决策、结果与证据的案例。</li><li>核实岗位资格、实际办公地点、薪资结构和团队分工。</li><li>面试后将问题、反馈与下一步写入备注。</li></ul></section>${saved?`<section class="panel"><h3>跟进记录</h3>${j.lastExport?.path?`<p class="hint">最近导出：${esc(j.lastExport.exportedAt||"")}</p><div class="file-result">${esc(j.lastExport.path)}</div>`:""}<ul class="history">${list(j.history).slice(0,15).map(h=>`<li>${esc(h.at||"")}<br>${esc(textOf(h.detail)||h.type||"更新记录")}</li>`).join("")||"暂无记录"}</ul><button class="text-button danger" data-action="delete-job">删除此机会</button></section>`:""}</div></div>`;
     if ($("#job-update-form")) $("#job-update-form").onsubmit = e => {
         e.preventDefault();
         captureJobDraft();
@@ -487,7 +487,7 @@ async function saveJob(job) {
         job
     });
     await refresh();
-    toast("已加入本机机会池");
+    toast("岗位已保存在本机");
     render();
     return result.job;
 }
@@ -532,7 +532,7 @@ function manual(job = null) {
     $("#manual-note").textContent = job ? "仅修改本机机会记录，原招聘平台的数据不会改变。后续重新获取详情可能更新这些字段。" : "复制招聘页面中的职位描述即可；无需先连接 BOSS。";
     $("#manual-submit").textContent = job ? "保存岗位资料" : "保存到机会池";
     $("#manual-error").hidden = true;
-    form.elements.namedItem("description").required = !job;
+    form.elements.namedItem("description").required = false;
     if (job)
         for (const key of ["title", "company", "salary", "city", "address", "url", "description"]) form.elements.namedItem(key).value = job[key] || "";
     $("#manual-dialog").showModal();
@@ -624,26 +624,26 @@ async function action(button) {
     }
     if (a === "tailor") {
         captureJobDraft();
-        if (trackingDrafts.has(renderedJobKey)) {
-            if (!await confirmAction("先保存跟进，再编辑简历？", "你的跟进记录有未保存修改。确认后会保存记录，再打开岗位专属简历。")) return;
-            await api("/api/career/update", {
-                id: activeJob.id,
-                ...trackingDrafts.get(renderedJobKey)
-            });
-            trackingDrafts.delete(renderedJobKey);
-        }
-        const id = $("#target-version").value;
+        const job = {...activeJob}, key = jobDraftKey(job), id = $("#target-version").value;
+        const pendingTracking = trackingDrafts.get(key);
         if (!id) throw new Error("请先选择一个简历版本。");
-        const result = await api("/api/career/tailor", {
-            jobId: activeJob.id,
-            versionId: id
-        });
-        targetChoices.set(jobDraftKey(activeJob), result.versionId);
-        // The departing form still contains the base resume. Do not let the
-        // unload draft capture replace the newly associated target with it.
+        if (pendingTracking) {
+            if (!await confirmAction("先保存跟进，再编辑简历？", "你的跟进记录有未保存修改。确认后会保存记录，再打开岗位专属简历。")) return;
+            await api("/api/career/update", {id: job.id, ...pendingTracking});
+            if (trackingDrafts.get(key) === pendingTracking) trackingDrafts.delete(key);
+        }
+        const result = await api("/api/career/tailor", {jobId: job.id, versionId: id});
+        targetChoices.set(key, result.versionId);
+        if (!activeJob || jobDraftKey(activeJob) !== key || !$("#job-dialog").open) {
+            resumes = await api("/api/state");
+            await refresh();
+            persistSession();
+            return toast("专属简历已创建。回到这个岗位后，可继续编辑关联简历。");
+        }
+        // Keep the outgoing base selection from replacing the new target.
         renderedJobKey = "";
         persistSession();
-        window.location.assign("/?version=" + encodeURIComponent(result.versionId) + "&returnJob=" + encodeURIComponent(activeJob.id));
+        window.location.assign("/?version=" + encodeURIComponent(result.versionId) + "&returnJob=" + encodeURIComponent(job.id));
         return;
     }
     if (a === "export") {
@@ -759,9 +759,9 @@ $("#backup-file").onchange = async e => {
     e.target.value = "";
     if (!file) return;
     await busy(null, async () => {
-        if (file.size > 8000000) throw new Error("备份文件不得超过 8 MB。");
+        if (file.size > 64 * 1024 * 1024) throw new Error("备份文件不得超过64MB；其中PDF留档最多40MB。");
         const backup = JSON.parse(await file.text());
-        if (!await confirmAction("导入求职备份？", "导入将按备份内容恢复求职记录，请先导出当前备份。日程也会按备份替换，旧版备份不含日程。简历内容仍在简历工作台中单独管理。")) return;
+        if (!await confirmAction("导入求职备份？", "导入会替换当前机会、日程、筛选方案和投递留档。请先导出当前备份；旧版备份没有的新字段将被清空。简历编辑区仍单独管理，投递快照随求职备份恢复。")) return;
         await api("/api/career/import", {
             backup
         });
