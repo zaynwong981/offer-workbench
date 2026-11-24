@@ -53,12 +53,13 @@ def plan(value):
     raw = value.get('filters', {})
     if not isinstance(raw, dict): raise ValueError('搜索条件格式不正确。')
     filters={}
-    for key in ('keyword','city','salary','experience','education'):
+    for key in ('keyword','city','salary','experience','education','recruitmentType'):
         if key in raw: filters[key]=text(raw[key],key,100)
     page=raw.get('page',1)
     if isinstance(page,bool) or not isinstance(page,int) or not 1<=page<=5: raise ValueError('页码应为1至5。')
     filters['page']=page
-    for key in ('scale','stage','jobType'):
+    if filters.get('recruitmentType','all') not in ('all','campus','social','internship'): raise ValueError('招聘类别无效。')
+    for key in ('scale','stage','jobType','industry'):
         if key in raw:
             if not isinstance(raw[key],list) or len(raw[key])>30: raise ValueError('搜索多选条件过多。')
             filters[key]=[text(x,key,100) for x in raw[key]]

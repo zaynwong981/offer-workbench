@@ -29,3 +29,9 @@ ICS 使用稳定 UID、SEQUENCE、UTF-8 75 字节折行；时间转换为 UTC；
 0.7.0 新增 artifacts、submissions 两表。PDF、所选简历版本及共享个人信息／教育、岗位内容在导出时捕获；确认投递只引用该文件，requestId用于幂等，不重建历史。PDF和规范化JSON快照分别使用SHA-256校验；这是完整性检测，不是招聘方签收凭证。常规state只返回留档摘要，历史PDF通过同源GET取出。已确认投递的岗位禁止删除。
 
 备份导入在写入前验证结构、关联与校验值，并在同一事务恢复。单PDF5MB，留档序列化总量40MB，导入HTTP64MB，其余请求8MB。本地服务请求队列提高到64，避免浏览器并行加载静态模块时连接队列过小。
+
+## 0.7.1 偏好与筛选
+
+`preference-options.json`保存离线城市编码、两级岗位／业务目录、薪资和经验条件；`preference_options.py`负责校验与受限编码转换，随career state提供前端。招聘类别存于原preferences和searchPlans JSON，无新表、不重写原数据；旧备份默认all。目录不写入用户备份。
+
+BOSS适配器生成固定官方域名的URL，只传CLI已支持的白名单参数以避开旧名称映射；不接受任意外部URL。实习使用CLI原生jobType，不以实习请求代替校招。风险锁、单页、无自动重试保持原行为。能力依据见reference/BOSS_FILTER_SOURCES.md；离线参数验证不等于线上岗位结果验收。

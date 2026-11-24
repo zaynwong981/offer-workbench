@@ -178,6 +178,7 @@ function readPreferences(form) {
     for (const k of ["preferredLocations", "excludedCompanies"]) prefs[k] = splitItems(f.get(k));
     prefs.salaryMin = Number(f.get("salaryMin"));
     prefs.salaryMax = Number(f.get("salaryMax"));
+    prefs.recruitmentType = f.get("recruitmentType") || "all";
     prefs.pace = f.get("pace");
     prefs.notes = String(f.get("notes") || "").trim();
     return prefs;
@@ -264,10 +265,10 @@ function searchExtraFields() {
         stage: "融资阶段",
         jobType: "工作类型"
     };
-    const singles = ["salary", "experience", "education"].map(key => `<label>${labels[key]}<select name="${key}"><option value="">不限</option>${list(connection.filters?.[key]?.options).map(v=>`<option value="${esc(v)}" ${searchValues[key]===v?"selected":""}>${esc(v)}</option>`).join("")}</select></label>`).join("");
-    const multiples = ["scale", "stage", "jobType"].map(key => `<fieldset class="search-filter-group"><legend>${labels[key]} <span class="muted">可多选</span></legend><div class="chip-group">${list(connection.filters?.[key]?.options).map(v=>`<label class="chip"><input type="checkbox" name="${key}" value="${esc(v)}" ${list(searchValues[key]).includes(v)?"checked":""}>${esc(v)}</label>`).join("")||'<span class="muted">连接信息中暂无可用选项</span>'}</div></fieldset>`).join("");
-    const expanded = Object.keys(searchValues).some(k => !["keyword", "city", "page"].includes(k));
-    return `<details class="search-advanced" ${expanded?"open":""}><summary>更多筛选 <span class="muted">薪资、经验、学历、规模、融资与工作类型</span></summary><div class="search-extra-grid">${singles}</div>${multiples}<p class="hint">这些选项来自当前 BOSS CLI。多选条件由平台解释；本地偏好仍只用于匹配分析。</p></details>`;
+    const singles = ["salary", "experience", "education"].map(key => `<label>${labels[key]}<select name="${key}"><option value="">不限</option>${[...new Set([...list(connection.filters?.[key]?.options),...(searchValues[key]?[searchValues[key]]:[])])].map(v=>`<option value="${esc(v)}" ${searchValues[key]===v?"selected":""}>${esc(v)}</option>`).join("")}</select></label>`).join("");
+    const multiples = ["scale", "stage", "jobType"].map(key => `<fieldset class="search-filter-group"><legend>${labels[key]} <span class="muted">可多选</span></legend><div class="chip-group">${[...new Set([...list(connection.filters?.[key]?.options),...list(searchValues[key])])].map(v=>`<label class="chip"><input type="checkbox" name="${key}" value="${esc(v)}" ${list(searchValues[key]).includes(v)?"checked":""}>${esc(v)}</label>`).join("")||'<span class="muted">连接信息中暂无可用选项</span>'}</div></fieldset>`).join("");
+    const expanded = ["salary", "experience", "education", "scale", "stage", "jobType"].some(k => Array.isArray(searchValues[k]) ? searchValues[k].length : Boolean(searchValues[k]));
+    return `<details class="search-advanced" ${expanded?"open":""}><summary>更多筛选 <span class="muted">薪资、经验、学历、规模、融资与工作类型</span></summary><div class="search-extra-grid">${singles}</div>${multiples}<p class="hint">这些选项来自当前 BOSS CLI。多选条件由平台解释；办公地点、排除公司等额外偏好仍用于本地评估。</p></details>`;
 }
 
 function readSearchFilters(form) {
@@ -278,12 +279,12 @@ function readSearchFilters(form) {
         };
     const city = String(f.get("city") || "").trim();
     if (city) filters.city = city;
-    for (const key of ["salary", "experience", "education"]) {
+    for (const key of ["salary", "experience", "education", "recruitmentType"]) {
         const v = f.get(key);
         if (v) filters[key] = v;
     }
-    for (const key of ["scale", "stage", "jobType"]) {
-        const values = f.getAll(key);
+    for (const key of ["scale", "stage", "jobType", "industry"]) {
+        const values = f.getAll(key).filter(Boolean);
         if (values.length) filters[key] = values;
     }
     return filters;
@@ -291,7 +292,8 @@ function readSearchFilters(form) {
 
 function renderSearch() {
     const feedback = searchPending ? '<div class="search-feedback" role="status">正在读取这一页岗位…通常需要数秒，最长约 45 秒。你可以切换页面，结果会保留在这里。</div>' : searchError ? `<div class="search-feedback error-banner" role="alert">${esc(searchError)}<div class="button-row"><button class="secondary" data-action="open-connection-help">查看排障指南</button><button class="secondary" data-action="manual">先手动添加 JD</button></div></div>` : "";
-    $("#content").innerHTML = `<section class="panel"><form id="search-form" class="search-form"><label>关键词<input name="keyword" maxlength="100" value="${esc(searchValues.keyword)}" required placeholder="产品经理 SaaS"></label><label>城市<input name="city" maxlength="40" value="${esc(searchValues.city||"")}" placeholder="深圳"></label><label>页码<input name="page" type="number" min="1" max="5" value="${esc(searchValues.page)}"></label><button class="primary" type="submit" ${searchPending?"disabled":""}>${searchPending?"正在搜索…":"搜索 BOSS"}</button>${searchExtraFields()}</form>${feedback}<p class="hint">每次搜索读取一页岗位。切换页面会保留条件和结果；刷新页面不会重新搜索。</p><details><summary class="muted">连接说明与搜索边界</summary><p class="note">先按使用指引打开专用 Chrome 并登录 BOSS。遇到登录验证或环境异常时，回到原网页处理；也可以先粘贴 JD 保存岗位。</p></details></section><div class="search-summary"><h2>搜索结果</h2><p>${esc(resultInfo||"尚未发起搜索")}</p></div><div id="search-results">${results.length?`<div class="job-list">${results.map((j,i)=>jobCard(j,i)).join("")}</div>`:empty(searchCompleted?"本次未返回岗位":searchPending?"正在读取岗位":searchError?"本次未取回岗位":"从一个关键词开始",searchCompleted?"暂不能确认是真实空页还是会话或分页异常。请在专用 Chrome 核对相同搜索条件、登录状态和下一页；勿连续重试。":"也可以把其他招聘平台的职位描述粘贴进来，统一管理和评估。",'<button class="secondary" data-action="manual">手动添加岗位</button>')}</div>`;
+    $("#content").innerHTML = `<section class="panel"><form id="search-form" class="search-form"><label>关键词<input name="keyword" maxlength="100" value="${esc(searchValues.keyword)}" required placeholder="产品经理 SaaS"></label><label>城市<input name="city" maxlength="40" value="${esc(searchValues.city||"")}" placeholder="深圳"></label><label>页码<input name="page" type="number" min="1" max="5" value="${esc(searchValues.page)}"></label><button class="primary" type="submit" ${searchPending?"disabled":""}>${searchPending?"正在搜索…":"搜索 BOSS"}</button><label class="search-recruitment">招聘类别<select name="recruitmentType">${recruitmentOptions(searchValues.recruitmentType)}</select></label><label class="search-industry">行业<select name="industry"><option value="">不限</option>${Object.keys(career.preferenceOptions?.industries||{}).map(v=>`<option ${list(searchValues.industry).includes(v)?"selected":""}>${esc(v)}</option>`).join("")}</select></label>${savedPreferenceSearchFields()}${searchExtraFields()}</form>${feedback}<p class="hint">每次搜索读取一页岗位。切换页面会保留条件和结果；刷新页面不会重新搜索。</p><details><summary class="muted">连接说明与搜索边界</summary><p class="note">先按使用指引打开专用 Chrome 并登录 BOSS。遇到登录验证或环境异常时，回到原网页处理；也可以先粘贴 JD 保存岗位。</p></details></section><div class="search-summary"><h2>搜索结果</h2><p>${esc(resultInfo||"尚未发起搜索")}</p></div><div id="search-results">${results.length?`<div class="job-list">${results.map((j,i)=>jobCard(j,i)).join("")}</div>`:empty(searchCompleted?"本次未返回岗位":searchPending?"正在读取岗位":searchError?"本次未取回岗位":"从一个关键词开始",searchCompleted?"暂不能确认是真实空页还是会话或分页异常。请在专用 Chrome 核对相同搜索条件、登录状态和下一页；勿连续重试。":"也可以把其他招聘平台的职位描述粘贴进来，统一管理和评估。",'<button class="secondary" data-action="manual">手动添加岗位</button>')}</div>`;
+    const fillSaved=$("#fill-saved-preferences");if(fillSaved)fillSaved.onclick=fillSearchFromPreferences;
     $("#search-form").onsubmit = async e => {
         e.preventDefault();
         if (searchPending) return;
@@ -363,17 +365,65 @@ const preferenceGroups = [{
     choices: ["初创", "成长期", "成熟公司", "上市公司", "不限"]
 }];
 
+const recruitmentLabels = {all:"不限",campus:"校招",social:"社招",internship:"实习"};
+function recruitmentOptions(value) {
+    return Object.entries(recruitmentLabels).map(([id,label])=>`<option value="${id}" ${id===(value||'all')?'selected':''}>${label}</option>`).join('');
+}
+function salaryBands() { return list(career.preferenceOptions?.salaryBands); }
+function salaryBandValue(p) { return salaryBands().find(b=>b.min===Number(p.salaryMin||0)&&b.max===Number(p.salaryMax||0))?.label||''; }
 function preferenceGroup(group, prefs) {
-    const selected = list(prefs[group.key]);
-    const extra = selected.filter(v => !group.choices.includes(v));
-    return `<div class="pref-group"><p class="pref-title">${group.title} <span class="muted">可多选</span></p><div class="chip-group">${group.choices.map(v=>`<label class="chip"><input type="checkbox" name="${group.key}" value="${esc(v)}" ${selected.includes(v)?"checked":""}>${esc(v)}</label>`).join("")}</div>${group.key === "cities" ? (extra.length ? `<details class="legacy-cities"><summary>保留的历史城市：${esc(extra.join("、"))}</summary><p class="hint">当前仅提供北上广深杭与远程；旧偏好暂保留，移除后保存才会更新。</p><input name="citiesExtra" readonly value="${esc(extra.join("，"))}" aria-label="保留的历史城市"><button type="button" id="clear-legacy-cities" class="text-button">移除历史城市偏好</button></details>` : "") : `<label>补充选项（逗号分隔）<input name="${group.key}Extra" value="${esc(extra.join("，"))}" placeholder="可以保留模糊或探索中的偏好"></label>`}</div>`;
+    const selected = list(prefs[group.key]), extra = selected.filter(v => !group.choices.includes(v));
+    if (['roles','keywords'].includes(group.key)) {
+        const groups = career.preferenceOptions?.[group.key==='roles'?'roleGroups':'businessGroups'] || {};
+        const names = Object.keys(groups), first = groups[names[0]] || [];
+        return `<div class="pref-group"><p class="pref-title">${group.title}</p><div class="classification-picker"><label>大类<select data-pref-category="${group.key}">${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select></label><label>具体方向<select data-pref-choice="${group.key}"><option value="">选择后加入下方</option>${first.map(n=>`<option>${esc(n)}</option>`).join('')}</select></label><button type="button" class="secondary" data-pref-add="${group.key}">加入</button></div><label>已选与自定义匹配词<textarea name="${group.key}Extra" rows="3" placeholder="可直接填写多个方向，用逗号或换行分隔">${esc(selected.join('，'))}</textarea></label><p class="hint">可从分类加入，也可直接修改、删除或补充下方文字。具体岗位仍按职责核实。</p></div>`;
+    }
+    return `<div class="pref-group"><p class="pref-title">${group.title} <span class="muted">可多选</span></p><div class="chip-group">${group.choices.map(v=>`<label class="chip"><input type="checkbox" name="${group.key}" value="${esc(v)}" ${selected.includes(v)?"checked":""}>${esc(v)}</label>`).join('')}${group.key==='cities'?`<label class="chip"><input type="checkbox" id="other-cities" ${extra.length?'checked':''}>其它</label>`:''}</div><label ${group.key==='cities'?'id="other-cities-field" '+(extra.length?'':'hidden'):''}>${group.key==='cities'?'中国大陆其他城市或香港':'补充选项'}（逗号分隔）<input name="${group.key}Extra" value="${esc(extra.join('，'))}" placeholder="${group.key==='cities'?'例如：成都，南京，香港':'可以保留探索中的偏好'}"></label>${group.key==='cities'?'<p class="hint">支持城市全名，可加“市”；区县、办公楼请填在优先办公地点。远程作为本地偏好，搜索时另选城市。</p>':''}</div>`;
+}
+function mountPreferenceControls() {
+    const form = $('#preferences-form');
+    const other = $('#other-cities');
+    if(other) other.onchange=()=>{
+        const field=$('#other-cities-field');
+        if(!other.checked && form.elements.namedItem('citiesExtra').value.trim()) {
+            other.checked=true;toast('先清空其它城市，再取消勾选；已填城市不会直接丢失。');
+        }
+        field.hidden=!other.checked;
+    };
+    form.querySelectorAll('[data-pref-category]').forEach(select=>select.onchange=()=>{
+        const k=select.dataset.prefCategory, groups=career.preferenceOptions[k==='roles'?'roleGroups':'businessGroups'];
+        form.querySelector(`[data-pref-choice="${k}"]`).innerHTML='<option value="">选择后加入下方</option>'+list(groups[select.value]).map(n=>`<option>${esc(n)}</option>`).join('');
+    });
+    form.querySelectorAll('[data-pref-add]').forEach(button=>button.onclick=()=>{
+        const k=button.dataset.prefAdd, value=form.querySelector(`[data-pref-choice="${k}"]`).value, input=form.elements.namedItem(k+'Extra');
+        if(!value)return toast('先选择一个具体方向，或直接在下方填写。');
+        input.value=[...new Set([...splitItems(input.value),value])].join('，');captureViewDraft();
+    });
+    const band=$('#preference-salary-band');
+    if(band) {
+        band.onchange=()=>{const v=salaryBands().find(x=>x.label===band.value);if(!v)return;form.elements.namedItem('salaryMin').value=v.min;form.elements.namedItem('salaryMax').value=v.max;captureViewDraft();};
+        for(const k of ['salaryMin','salaryMax']) form.elements.namedItem(k).addEventListener('input',()=>{band.value=salaryBandValue(readPreferences(form));band.dispatchEvent(new Event('input'));});
+    }
+}
+function savedPreferenceSearchFields() {
+    const p=career.preferences||{};
+    return `<details class="search-advanced saved-preference-search"><summary>从已保存偏好填写</summary><p class="hint">一次选择一个城市、岗位方向和业务。只填写条件，不会自动搜索。</p><div class="search-extra-grid">${[['city','城市',list(p.cities).filter(x=>x!=='远程')],['role','岗位方向',list(p.roles)],['business','业务方向',list(p.keywords)]].map(([id,label,values])=>`<label>${label}<select id="saved-pref-${id}"><option value="">暂不带入</option>${values.map((v,i)=>`<option ${i===0?'selected':''}>${esc(v)}</option>`).join('')}</select></label>`).join('')}</div><button type="button" class="secondary" id="fill-saved-preferences">填写搜索条件</button><p class="hint">自定义业务词会并入关键词；目录内业务会使用行业筛选。手填薪资没有相同区间时不自动扩大范围，可在下方自行选择。</p></details>`;
+}
+function fillSearchFromPreferences() {
+    const p=career.preferences||{}, role=$('#saved-pref-role').value, city=$('#saved-pref-city').value, business=$('#saved-pref-business').value;
+    searchValues=readSearchFilters($('#search-form'));
+    searchValues.keyword=[role||searchValues.keyword, career.preferenceOptions?.industries?.[business]?'':business].filter(Boolean).join(' ');
+    searchValues.city=city;searchValues.recruitmentType=p.recruitmentType||'all';searchValues.page=1;
+    delete searchValues.experience;delete searchValues.jobType;delete searchValues.industry;delete searchValues.salary;
+    if(career.preferenceOptions?.industries?.[business])searchValues.industry=[business];
+    const band=salaryBandValue(p);if(band&&band!=='不限')searchValues.salary=band;
+    persistSession();renderSearch();toast('已填写搜索条件，请核对后点击搜索 BOSS。');
 }
 
 function renderPreferences() {
     const p = preferenceDraft || career.preferences || {};
-    $("#content").innerHTML = `<div class="preferences-layout"><form id="preferences-form" class="panel"><div class="panel-heading"><h2>我的求职偏好</h2><span class="tag">用于本地评估</span></div><p id="preferences-dirty" class="draft-hint" ${preferenceDraft?"":"hidden"}>有未保存修改，已保留在此浏览器标签页；切页或刷新后可继续。匹配仍使用已保存偏好。</p><label>求职节奏<select name="pace"><option value="passive" ${p.pace==="passive"?"selected":""}>在职观察，只看明显更好的机会</option><option value="exploring" ${p.pace==="exploring"?"selected":""}>主动探索，开放比较</option><option value="active" ${p.pace==="active"?"selected":""}>积极求职，尽快推进</option></select></label><div class="preferences-grid">${preferenceGroups.slice(0,3).map(g=>preferenceGroup(g,p)).join("")}<div class="pref-group"><p class="pref-title">税前月薪（K）</p><div class="form-grid"><label>期望下限<input name="salaryMin" type="number" min="0" max="1000" step="0.5" value="${esc(p.salaryMin||0)}"></label><label>期望上限<input name="salaryMax" type="number" min="0" max="1000" step="0.5" value="${esc(p.salaryMax||0)}"></label></div><p class="hint">0 表示不限制。岗位薪资未知或口径不明确时标记待核实。</p></div><div class="pref-group"><label>优先办公区域 / 地点（每行一个）<textarea name="preferredLocations" rows="3" placeholder="例如：目标城区或通勤区域">${esc(list(p.preferredLocations).join("\n"))}</textarea></label></div>${preferenceGroups.slice(3).map(g=>preferenceGroup(g,p)).join("")}<div class="pref-group"><label>排除公司（每行一个）<textarea name="excludedCompanies" rows="3" placeholder="不考虑的公司；已拒绝记录另保留在机会管理中">${esc(list(p.excludedCompanies).join("\n"))}</textarea></label></div></div><label>其他条件与待探索问题<textarea name="notes" rows="4" placeholder="例如：优先有成熟产研团队；薪资结构待比较">${esc(p.notes||"")}</textarea></label><div class="dialog-actions preferences-actions"><button class="secondary" type="button" data-action="discard-preferences">撤销未保存修改</button><button class="primary" type="submit">保存偏好</button></div></form><div class="preferences-support"><details class="panel"><summary>匹配与操作边界</summary><ul class="feature-list"><li>维护多方向简历与本地 PDF</li><li>按次检索岗位，或手动录入 JD</li><li>查看条件差距与简历中的匹配证据</li><li>复制岗位专属版本并自行微调</li><li>跟进沟通、投递、面试与拒绝记录</li></ul><div class="note">规则匹配只是辅助筛选，不是招聘成功概率。薪资、办公地址、校招资格等需向招聘方核实。</div><p class="muted">发送消息、交换联系方式和投递简历请在原平台完成，回来更新状态。没有后台采集或自动投递。</p></details><section class="panel"><h2>备份与迁移</h2><p class="hint">求职备份包含偏好、机会与日程。完整简历与照片请在「简历工作台」另行下载备份。</p><div class="button-row"><button class="secondary" data-action="backup">导出求职备份</button><button class="secondary" data-action="restore">导入备份</button></div></section></div></div>`;
-    const clearLegacy = $("#clear-legacy-cities");
-    if (clearLegacy) clearLegacy.onclick=()=>{const input=$("[name=citiesExtra]");input.value="";input.dispatchEvent(new Event("input",{bubbles:true}));clearLegacy.disabled=true;};
+    $("#content").innerHTML = `<div class="preferences-layout"><form id="preferences-form" class="panel"><div class="panel-heading"><h2>我的求职偏好</h2><span class="tag">可带入搜索</span></div><p id="preferences-dirty" class="draft-hint" ${preferenceDraft?"":"hidden"}>有未保存修改，已保留在此浏览器标签页；切页或刷新后可继续。匹配仍使用已保存偏好。</p><div class="form-grid"><label>招聘类别<select name="recruitmentType">${recruitmentOptions(p.recruitmentType)}</select></label><label>求职节奏<select name="pace"><option value="passive" ${p.pace==="passive"?"selected":""}>在职观察，只看明显更好的机会</option><option value="exploring" ${p.pace==="exploring"?"selected":""}>主动探索，开放比较</option><option value="active" ${p.pace==="active"?"selected":""}>积极求职，尽快推进</option></select></label></div><p class="hint">校招按应届生条件，社招按非在校／应届经验条件，实习按实习岗位筛选；最终资格以岗位说明为准。</p><div class="preferences-grid">${preferenceGroups.slice(0,3).map(g=>preferenceGroup(g,p)).join("")}<div class="pref-group"><p class="pref-title">税前月薪（人民币 K）</p><label>常用区间<select id="preference-salary-band"><option value="" ${salaryBandValue(p)?"":"selected"}>自定义金额</option>${salaryBands().map(b=>`<option ${salaryBandValue(p)===b.label?"selected":""}>${esc(b.label)}</option>`).join("")}</select></label><div class="form-grid"><label>期望下限<input name="salaryMin" type="number" min="0" max="1000" step="0.5" value="${esc(p.salaryMin||0)}"></label><label>期望上限<input name="salaryMax" type="number" min="0" max="1000" step="0.5" value="${esc(p.salaryMax||0)}"></label></div><p class="hint">0 表示不限制。岗位薪资未知或口径不明确时标记待核实。</p></div><div class="pref-group"><label>优先办公区域 / 地点（每行一个）<textarea name="preferredLocations" rows="3" placeholder="深圳市南山区&#10;高新园地铁站">${esc(list(p.preferredLocations).join("\n"))}</textarea></label></div>${preferenceGroups.slice(3).map(g=>preferenceGroup(g,p)).join("")}<div class="pref-group"><label>排除公司（每行一个）<textarea name="excludedCompanies" rows="3" placeholder="不考虑的公司；已拒绝记录另保留在机会管理中">${esc(list(p.excludedCompanies).join("\n"))}</textarea></label></div></div><label>其他条件与待探索问题<textarea name="notes" rows="4" placeholder="例如：优先有成熟产研团队；薪资结构待比较">${esc(p.notes||"")}</textarea></label><div class="dialog-actions preferences-actions"><button class="secondary" type="button" data-action="discard-preferences">撤销未保存修改</button><button class="primary" type="submit">保存偏好</button></div></form><div class="preferences-support"><details class="panel"><summary>匹配与操作边界</summary><ul class="feature-list"><li>维护多方向简历与本地 PDF</li><li>按次检索岗位，或手动录入 JD</li><li>查看条件差距与简历中的匹配证据</li><li>复制岗位专属版本并自行微调</li><li>跟进沟通、投递、面试与拒绝记录</li></ul><div class="note">规则匹配只是辅助筛选，不是招聘成功概率。薪资、办公地址、校招资格等需向招聘方核实。</div><p class="muted">发送消息、交换联系方式和投递简历请在原平台完成，回来更新状态。没有后台采集或自动投递。</p></details><section class="panel"><h2>备份与迁移</h2><p class="hint">求职备份包含偏好、机会、日程与投递留档。完整简历与照片请在「简历工作台」另行下载备份。</p><div class="button-row"><button class="secondary" data-action="backup">导出求职备份</button><button class="secondary" data-action="restore">导入备份</button></div></section></div></div>`;
+    mountPreferenceControls();
     $("#preferences-form").onsubmit = e => {
         e.preventDefault();
         const prefs = readPreferences(e.target);

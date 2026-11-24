@@ -21,3 +21,5 @@
 .search-feedback .button-row { margin-top: 10px; }
 .linked-resume { display: inline-block; text-decoration: none; text-align: center; }
 #manual-error { margin-bottom: 14px; }
+
+.classification-picker{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto;gap:10px;align-items:end;margin:12px 0}.preferences-grid .pref-group{min-width:0}.pref-group>label{margin:12px 0}.classification-picker button{min-height:42px}.search-recruitment,.search-industry{grid-column:span 2}.saved-preference-search summary{color:#245bcc}.preferences-layout .pref-title{font-size:15px;font-weight:600}.preferences-layout .hint{font-size:13px;line-height:1.7}@media(max-width:650px){.classification-picker{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.classification-picker button{grid-column:1/-1}.search-recruitment,.search-industry{grid-column:auto}}

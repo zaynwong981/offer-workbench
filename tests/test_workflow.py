@@ -73,3 +73,17 @@ class WorkflowTests(unittest.TestCase):
         self.call('preparation',id=self.job['id'],preparation={'greeting':'保留这段'})
         with self.assertRaises(ValueError):self.call('preparation',id=self.job['id'],preparation={'greeting':'替换','works':[{'label':'危险','url':'file:///private'}]})
         self.assertEqual(self.call('state')['jobs'][0]['preparation']['greeting'],'保留这段')
+
+    def test_new_preferences_and_search_plan_backup_remain_compatible(self):
+        prefs=self.call('state')['preferences'];prefs.update(recruitmentType='internship',cities=['成都市','香港'],roles=['机械工程师','手动方向'],keywords=['新能源'])
+        self.call('preferences',preferences=prefs)
+        self.call('plan-save',plan={'name':'实习探索','filters':{'keyword':'机械工程师','city':'香港','page':1,'recruitmentType':'internship','industry':['制造业']}})
+        backup=self.call('backup');self.call('import',backup=backup)
+        state=self.call('state');self.assertEqual(state['preferences'],prefs)
+        self.assertEqual(state['searchPlans'][0]['filters']['recruitmentType'],'internship')
+        self.assertEqual(state['searchPlans'][0]['filters']['industry'],['制造业'])
+        bad=copy.deepcopy(backup);bad['preferences']['recruitmentType']='invalid'
+        with self.assertRaises(ValueError):self.call('import',backup=bad)
+        self.assertEqual(self.call('backup')['preferences'],prefs)
+        legacy=copy.deepcopy(backup);legacy['preferences'].pop('recruitmentType');self.call('import',backup=legacy)
+        self.assertEqual(self.call('state')['preferences']['recruitmentType'],'all')

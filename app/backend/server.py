@@ -385,8 +385,8 @@ class Handler(BaseHTTPRequestHandler):
         static.update({"/studio.css": ("app/frontend/css/studio.css", "text/css; charset=utf-8"), "/ui.js": ("app/frontend/js/ui.js", "text/javascript; charset=utf-8"), "/photo-crop.js": ("app/frontend/js/photo-crop.js", "text/javascript; charset=utf-8"), "/boss-help": ("app/frontend/guide.html", "text/html; charset=utf-8"), "/boss-help.js": ("app/frontend/js/boss-help.js", "text/javascript; charset=utf-8")})
         static.update({"/calendar-ui.js": ("app/frontend/js/calendar-ui.js", "text/javascript; charset=utf-8"), "/calendar.css": ("app/frontend/css/calendar.css", "text/css; charset=utf-8")})
         static.update({"/doc-reader.js": ("app/frontend/js/doc-reader.js", "text/javascript; charset=utf-8"), "/doc-reader.css": ("app/frontend/css/doc-reader.css", "text/css; charset=utf-8")})
-        for document in ("CHANGELOG.md", "SALARY_POLICY_SOURCES.md"):
-            file = "docs/reference/" + document if document == "SALARY_POLICY_SOURCES.md" else document
+        for document in ("CHANGELOG.md", "SALARY_POLICY_SOURCES.md", "BOSS_FILTER_SOURCES.md"):
+            file = "docs/reference/" + document if document in ("SALARY_POLICY_SOURCES.md", "BOSS_FILTER_SOURCES.md") else document
             static["/docs/" + document] = (file, "text/plain; charset=utf-8")
         static["/docs/images/calendar-demo.png"] = ("docs/images/calendar-demo.png", "image/png")
         static["/docs/images/user-journey.png"] = ("docs/images/user-journey.png", "image/png")

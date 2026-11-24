@@ -30,7 +30,7 @@ class AdapterTest(unittest.TestCase):
         result = self.adapter.search({"query": "--greet $(echo unsafe)", "city": "深圳", "stage": ["A轮", "B轮"], "jobType": ["全职"], "page": 2})
         argv = run.call_args.args[0]
         self.assertEqual(argv[-2:], ["--", "--greet $(echo unsafe)"])
-        self.assertIn("--city=深圳", argv)
+        self.assertTrue(any("city=101280600" in a for a in argv))
         self.assertIn("--stage=A轮,B轮", argv)
         self.assertIn("--page=2", argv)
         self.assertIn("--no-cache", argv)
@@ -193,6 +193,30 @@ class AdapterTest(unittest.TestCase):
         self.assertIn("a%2Fb", job["url"])
         self.assertNotIn("matchScore", job)
 
+
+    @patch("app.backend.boss_adapter.subprocess.run")
+    def test_recruitment_and_custom_city_use_codes_without_extra_requests(self, run):
+        from urllib.parse import urlparse, parse_qs
+        run.return_value=response("search",[self.job])
+        for kind,expected in [("campus","102"),("social","101,103,104,105,106,107"),("internship",None)]:
+            self.adapter.search({"query":"机械工程师","city":"香港特别行政区","recruitmentType":kind,"salary":"10-20K"})
+            args=run.call_args.args[0];params=parse_qs(urlparse(next(a[6:] for a in args if a.startswith('--url='))).query)
+            self.assertEqual(params['city'],['101320300']);self.assertEqual(params['salary'],['405'])
+            if expected:self.assertEqual(params['experience'],[expected])
+            else:self.assertIn('--job-type=实习',args)
+            self.assertNotIn('--city=香港',args)
+        self.assertEqual(run.call_count,3)
+        self.adapter.search({"query":"工程师","city":"南阳市","experience":"1-3年"})
+        args=run.call_args.args[0];self.assertTrue(any('city=101180700' in a and 'experience=104' in a for a in args))
+
+    @patch("app.backend.boss_adapter.subprocess.run")
+    def test_invalid_cities_and_conflicting_types_do_not_run_cli(self, run):
+        invalid=[{'recruitmentType':'campus','job_type':['实习']},{'recruitmentType':'social','jobType':['实习']},{'city':'火星'},{'city':'广东省'},{'city':'远程'},{'city':'https://example.com'},
+          {'recruitmentType':'campus','experience':'3-5年'}, {'recruitmentType':'internship','jobType':['全职']},
+          {'recruitmentType':'social','experience':'应届'},{'recruitmentType':'unknown'}, {'salary':'10-15K'}]
+        for more in invalid:
+            with self.subTest(more=more),self.assertRaises(BossError):self.adapter.search({'query':'工程师',**more})
+        run.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()
