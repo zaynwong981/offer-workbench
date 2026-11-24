@@ -1,0 +1,19 @@
+import fs from 'node:fs';import path from 'node:path';import os from 'node:os';import {spawn} from 'node:child_process';import {fileURLToPath,pathToFileURL} from 'node:url';
+const root=path.dirname(fileURLToPath(import.meta.url));const profile=fs.mkdtempSync(path.join(os.tmpdir(),'offer-posters-'));const chrome=spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless=new',`--user-data-dir=${profile}`,'--remote-debugging-port=0','--no-first-run','--disable-extensions','--hide-scrollbars','--disable-gpu','about:blank'],{stdio:'ignore'});
+let ws;const sleep=ms=>new Promise(r=>setTimeout(r,ms));const guard=setTimeout(()=>{chrome.kill();process.exit(2)},120000);
+try{let port;for(let i=0;i<100&&!port;i++){await sleep(100);try{port=Number(fs.readFileSync(path.join(profile,'DevToolsActivePort'),'utf8').split('\n')[0])}catch{}}
+ const ver=await(await fetch(`http://127.0.0.1:${port}/json/version`)).json();ws=new WebSocket(ver.webSocketDebuggerUrl);await new Promise(r=>ws.addEventListener('open',r,{once:true}));let id=0;const pending=new Map();ws.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){pending.get(m.id)?.(m);pending.delete(m.id)}});const send=(method,params={},sessionId)=>new Promise(r=>{const n=++id;pending.set(n,r);ws.send(JSON.stringify({id:n,method,params,sessionId}))});
+ const {result:{targetId}}=await send('Target.createTarget',{url:'about:blank'});const {result:{sessionId}}=await send('Target.attachToTarget',{targetId,flatten:true});const S=async(m,p)=>{const r=await send(m,p,sessionId);if(r.error)throw Error(JSON.stringify(r.error));return r.result};const ev=async expression=>(await S('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true})).result?.value;
+ await S('Page.enable');const reports=[];
+ const tasks=[{file:'品牌预览.html',out:'品牌预览.png',w:1440,h:1040}];
+ for(const [asset,prefix] of [['mark-blue.svg','mark-blue'],['mark-black.svg','mark-black'],['mark-white.svg','mark-white'],['avatar.svg','avatar']])for(const size of (prefix==='mark-blue'?[64,256,512,1024]:[512]))tasks.push({file:'logo/export.html?asset='+asset,out:`logo/${prefix}-${size}.png`,w:size,h:size});
+ for(const size of [16,24,32])tasks.push({file:'logo/export.html?asset=mark-small.svg',out:`logo/icon-${size}.png`,w:size,h:size});
+ tasks.push({file:'logo/export.html?asset=wordmark.svg',out:'logo/wordmark.png',w:1400,h:288});
+ tasks.push({file:'github-banner.html',out:'GitHub展示横幅.png',w:1280,h:640});
+ for(const t of tasks){await S('Emulation.setDeviceMetricsOverride',{width:t.w,height:t.h,deviceScaleFactor:1,mobile:false});await S('Emulation.setDefaultBackgroundColorOverride',{color:{r:0,g:0,b:0,a:0}});
+ const [file,query]=t.file.split('?');await S('Page.navigate',{url:pathToFileURL(path.join(root,file)).href+(query?'?'+query:'')});
+ for(let n=0;n<100;n++){if(await ev("document.readyState==='complete'"))break;await sleep(40)}await ev('document.fonts.ready');await ev('Promise.all([...document.images].map(i=>i.decode()))');await sleep(100);
+ const check=await ev('({missing:[...document.images].filter(i=>!i.naturalWidth).length,width:innerWidth,height:innerHeight,overflow:document.documentElement.scrollWidth>innerWidth})');reports.push({out:t.out,...check});if(check.missing||check.overflow)throw Error(JSON.stringify(check));
+ const shot=await S('Page.captureScreenshot',{format:'png',clip:{x:0,y:0,width:t.w,height:t.h,scale:1},captureBeyondViewport:false});fs.writeFileSync(path.join(root,t.out),Buffer.from(shot.data,'base64'));
+ }fs.writeFileSync(path.join(root,'logo-layout-check.json'),JSON.stringify(reports,null,2));console.log(JSON.stringify(reports));await send('Browser.close');
+}finally{clearTimeout(guard);ws?.close();chrome.kill();await sleep(400);fs.rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:150})}

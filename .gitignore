@@ -25,3 +25,17 @@ __pycache__/
 /demo-exports*/
 /backups/
 /local/
+
+# Private marketing material must never be committed
+/marketing/
+/marketing-private/
+/campaigns/
+/OfferWorkbench推广/
+/私有营销素材/
+/营销素材/
+/宣发素材/
+**/发布正文.txt
+**/发布文案*.txt
+**/置顶评论.txt
+**/文案说明.md
+**/小红书*/

@@ -4,7 +4,7 @@
 
 一个本地优先的求职工作台。把散落在招聘网站、Word、备忘录和表格里的准备工作，收进同一套流程；你负责判断与实际提交，工作台负责保存材料、排版与追踪。
 
-[开始使用](#开始使用) · [完整指南](docs/USER_GUIDE.md) · [下载版本](https://github.com/zaynwong981/offer-workbench/releases) · [开发路线](PROJECT.md)
+[开始使用](#开始使用) · [完整指南](docs/USER_GUIDE.md) · [下载版本](https://github.com/zaynwong981/offer-workbench/releases) · [开发路线](PROJECT.md) · [品牌资产](docs/brand/README.md)
 
 ## 一次求职任务，怎样走完
 
