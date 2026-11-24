@@ -49,6 +49,7 @@ class Element {
   select() {}
   click() { this.onclick?.({currentTarget: this, target: this}); }
   reset() { for (const c of this.controls) { c.value = c.defaultValue; c.checked = c.defaultChecked; } }
+  querySelectorAll() { return []; }
   append() {}
   remove() {}
 }
@@ -382,4 +383,33 @@ test('switching jobs during tailoring keeps the copy on its original job and doe
   assert.equal(h.run("targetChoices.get('first')"),'first-copy');
   assert.notEqual(h.run("targetChoices.get('second')"),'first-copy');
   assert.equal(h.run('location.assigned'),undefined);
+});
+
+
+test('general preferences preserve recruitment, custom cities and manually entered directions across navigation', async()=>{
+ const h=await harness();h.run("navigate('preferences')");
+ h.set('preferences-form','recruitmentType','internship');h.set('preferences-form','citiesExtra','成都市，香港');
+ h.set('preferences-form','rolesExtra','机械工程师，定制方向');h.set('preferences-form','keywordsExtra','制造业，新能源');
+ h.run("navigate('search');navigate('preferences')");
+ assert.equal(h.node('preferences-form').elements.namedItem('recruitmentType').value,'internship');
+ assert.deepEqual(clone(h.run('preferenceDraft.cities')),['成都市','香港']);
+ assert.deepEqual(clone(h.run('preferenceDraft.roles')),['机械工程师','定制方向']);
+ assert.deepEqual(clone(h.run('preferenceDraft.keywords')),['制造业','新能源']);
+ assert.equal(h.calls.filter(c=>c.options.method==='POST').length,0);
+});
+
+test('search retains recruitment category through navigation and does not search until submitted',async()=>{
+ const h=await harness();h.run("navigate('search')");h.set('search-form','recruitmentType','campus');h.set('search-form','city','香港');
+ h.run("navigate('overview');navigate('search')");
+ assert.equal(h.node('search-form').elements.namedItem('recruitmentType').value,'campus');
+ assert.equal(h.node('search-form').elements.namedItem('city').value,'香港');
+ assert.equal(h.calls.filter(c=>c.url==='/api/boss/search').length,0);
+});
+
+test('restored multiple filters remain separate choices',async()=>{
+ const h=await harness();
+ const markup=h.run("searchValues={keyword:'engineer',scale:['20-99人','100-499人'],stage:['A轮','B轮']};searchExtraFields()");
+ assert.ok(!markup.includes('value="20-99人,100-499人"'));
+ assert.ok(!markup.includes('value="A轮,B轮"'));
+ assert.ok(markup.includes('value="A轮" checked'));
 });
