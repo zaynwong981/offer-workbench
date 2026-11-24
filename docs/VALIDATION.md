@@ -16,7 +16,15 @@
 
 实习走CLI已有岗位类型过滤；校招／社招按普通搜索经验条件，不能替代专区和资格校验。在线分页、薪资完整性与新条件实际命中仍待平台人工验收；未清锁、未联网搜索、未代投。
 
-发布与正式升级仍待远程CI、Release读回和个人数据核对；完成后补记证据，不能把本地通过视为远程发布。
+## 0.7.1 发布读回
+
+- [PR #7](https://github.com/zaynwong981/offer-workbench/pull/7)已合并；[分支CI](https://github.com/zaynwong981/offer-workbench/actions/runs/45381893751)、[PR CI](https://github.com/zaynwong981/offer-workbench/actions/runs/45381942664)六组均通过，合并后main检查通过。
+- [Release复验](https://github.com/zaynwong981/offer-workbench/actions/runs/45382195817)的Windows、macOS、Ubuntu及发布全部成功；[v0.7.1](https://github.com/zaynwong981/offer-workbench/releases/tag/v0.7.1)签注标签对应`524c2800a79f241bb581769b3fa41c8ab76adf7c`。
+- 下载源码包SHA-256：`c76d47435d7997f36263ea06b09224711f692c9e189cbc329f983accbfda2d43`；92文件与标签源码逐一一致。
+- 补充3项Chrome检查通过：JD及公司名实际14px、使用文档弹窗有筛选依据入口、无浏览器异常；查看JD滚动区截图。
+- 本机停机快照后升级；简历／配置逐字节、SQLite所有原表逐行、原PDF逐文件核对一致；导出目录保持原设置。快照在新目录恢复且全部哈希通过。
+- 飞书原需求局部加入实习，并对第6节十项分别追加完成批注、逐次读回；其他原文、历史批注和图片保留。
+- 本段为发布后证据补记，不覆盖标签或既有附件。
 
 ---
 
