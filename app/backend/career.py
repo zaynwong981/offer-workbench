@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 import uuid
 from .schedule import validate_event, conflicts
 from . import workflow
+from .preference_options import CATALOG, RECRUITMENT_TYPES
 
 
 STATUSES = {
@@ -23,7 +24,7 @@ STATUSES = {
 DEFAULT_PREFERENCES = {
     "cities": [], "roles": [], "keywords": [], "salaryMin": 0,
     "salaryMax": 0, "excludedCompanies": [], "preferredLocations": [],
-    "workModes": [], "companyStages": [], "notes": "", "pace": "passive",
+    "recruitmentType": "all", "workModes": [], "companyStages": [], "notes": "", "pace": "passive",
 }
 JOB_LIMITS = {
     "id": 720, "title": 300, "company": 300, "salary": 150,
@@ -97,6 +98,8 @@ def validate_preferences(value):
             result[key] = item
         else:
             result[key] = _text(item, key, 4000 if key == "notes" else 100)
+    if result["recruitmentType"] not in RECRUITMENT_TYPES:
+        raise ValueError("招聘类别请选择不限、校招、社招或实习。")
     if result["salaryMax"] and result["salaryMin"] > result["salaryMax"]:
         raise ValueError("期望月薪下限不能高于上限。")
     return result
@@ -321,7 +324,7 @@ class CareerStore:
         stats["due"] = sum(bool(job.get("nextDate")) and job["nextDate"] <= today and job["status"] not in ("rejected", "archived") for job in jobs)
         events = [json.loads(row[0]) for row in db.execute("SELECT data FROM events ORDER BY id")]
         return {"preferences": self._preferences(db), "jobs": jobs, "stats": stats, "statuses": STATUSES,
-                "events": events, "conflicts": conflicts(events), **workflow.extra_state(db)}
+                "events": events, "conflicts": conflicts(events), "preferenceOptions": CATALOG, **workflow.extra_state(db)}
 
     def dispatch(self, route, payload, resume_state):
         if not isinstance(payload, dict):

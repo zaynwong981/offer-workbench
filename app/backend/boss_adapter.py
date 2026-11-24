@@ -15,7 +15,8 @@ import subprocess
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, urlencode
+from .preference_options import CATALOG, search_params
 
 
 class BossError(RuntimeError):
@@ -32,10 +33,11 @@ class BossError(RuntimeError):
 FILTERS = {
     "query": {"multiple": False, "label": "职位关键词"},
     "city": {"multiple": False, "label": "城市", "examples": ["深圳", "广州", "北京", "上海", "杭州"]},
-    "salary": {"multiple": False, "options": ["3K以下", "3-5K", "5-10K", "10-15K", "10-20K", "20-50K", "50K以上"]},
-    "experience": {"multiple": False, "options": ["应届", "1年以内", "1-3年", "3-5年", "5-10年", "10年以上"]},
+    "recruitmentType": {"multiple": False, "options": ["all", "campus", "social", "internship"]},
+    "salary": {"multiple": False, "options": [b["label"] for b in CATALOG["salaryBands"] if b["code"]]},
+    "experience": {"multiple": False, "options": list(CATALOG["experience"])},
     "education": {"multiple": False, "options": ["大专", "本科", "硕士", "博士"]},
-    "industry": {"multiple": True, "label": "行业（CLI 支持的名称）"},
+    "industry": {"multiple": True, "label": "行业", "options": list(CATALOG["industries"])},
     "scale": {"multiple": True, "options": ["0-20人", "20-99人", "100-499人", "500-999人", "1000-9999人", "10000人以上"]},
     "stage": {"multiple": True, "options": ["不限", "未融资", "天使轮", "A轮", "B轮", "C轮", "D轮及以上", "已上市", "不需要融资"]},
     "jobType": {"multiple": True, "options": ["全职", "兼职", "实习"]},
@@ -191,6 +193,14 @@ class BossAdapter:
         allowed = set(FILTERS) | {"keyword", "job_type"}
         if set(filters) - allowed:
             raise BossError("INVALID_PARAM", "包含未支持的 BOSS 筛选条件，请使用界面提供的选项。")
+        filters = dict(filters)
+        if "job_type" in filters and "jobType" not in filters:
+            filters["jobType"] = filters.pop("job_type")
+        if filters.get("recruitmentType") == "internship":
+            existing = filters.get("jobType", filters.get("job_type", []))
+            if existing not in ([], "", ["实习"], "实习"):
+                raise BossError("INVALID_PARAM", "实习类别与工作类型冲突，请仅选择实习或清空工作类型。")
+            filters["jobType"] = ["实习"]
         query = filters.get("query") or filters.get("keyword")
         if not isinstance(query, str) or not query.strip() or len(query) > 100 or any(ord(c) < 32 for c in query):
             raise BossError("INVALID_PARAM", "请输入 1 至 100 字的单个搜索关键词。")
@@ -200,8 +210,16 @@ class BossAdapter:
         # A search is an explicit user refresh. CLI caches even empty pages and
         # rows with missing salaries for 24h, across browser login changes.
         args = ["--no-cache", "--page=" + str(page)]
+        try:
+            params = search_params(filters)
+        except (ValueError, TypeError) as exc:
+            raise BossError("INVALID_PARAM", str(exc)) from None
+        if params:
+            # CLI --url forwards allowlisted numeric parameters without its stale
+            # name lookups. The URL is generated here, never supplied by callers.
+            args.append("--url=https://www.zhipin.com/web/geek/job?" + urlencode(params))
         for key, spec in FILTERS.items():
-            if key in {"query", "page"}:
+            if key in {"query", "page", "city", "salary", "experience", "recruitmentType"}:
                 continue
             value = filters.get(key, filters.get("job_type") if key == "jobType" else None)
             if value is None or value == "" or value == []:
@@ -226,6 +244,8 @@ class BossAdapter:
             raise BossError("INVALID_RESPONSE", "BOSS 搜索结果结构不兼容。", 502)
         jobs = [normalize_job(row) for row in rows[:100]]
         warnings = ["本次已跳过 CLI 搜索缓存；薪资、福利、地址及招聘状态以岗位详情和招聘方确认为准。"]
+        if filters.get("recruitmentType") in ("campus", "social"):
+            warnings.append("招聘类别按经验条件筛选，不能代替校招专区或招聘方的届别／资格确认。")
         if len(rows) > 100:
             warnings.append("该页超过 100 条，仅显示前 100 条；未自动请求下一页。")
         jobs = [job for job in jobs if job["id"]]
