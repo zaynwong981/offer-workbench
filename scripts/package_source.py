@@ -5,6 +5,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = [
+    "app/backend/analysis_results.py", "app/frontend/js/ai-analysis.js", "tests/test_ai_analysis.js",
     "app/frontend/js/inline-ai.js",
     "app/backend/llm.py", "app/backend/assistant.py", "app/frontend/js/assistant-ui.js", "app/frontend/css/assistant.css", "app/frontend/css/brand.css", "tests/test_assistant.py", "docs/reference/AI_PROVIDERS.md",
 

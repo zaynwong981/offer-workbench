@@ -11,6 +11,7 @@ for (const [suffix, target] of [["-resume-active", "offer-workbench-active"], ["
 }
 let activeId = new URLSearchParams(location.search).get("version") || localStorage.getItem("offer-workbench-active") || "saas";
 let commonView = false;
+let materialsRequested = new URLSearchParams(location.search).get("materials") === "1";
 let editSequence = 0;
 let savedSequence = 0;
 let savingPromise = null;
@@ -75,6 +76,14 @@ function showRecovery() {
   $("#recovery").hidden = false;
   lockEditor(true);
   saveStatus("待处理未保存草稿");
+}
+
+async function openRequestedMaterials() {
+  if (!materialsRequested || recoveryPending || !state || !window.AssistantUI) return;
+  materialsRequested = false;
+  const url = new URL(location.href);url.searchParams.delete('materials');history.replaceState(null,'',url);
+  if (!await save()) { materialsRequested = true; return; }
+  await AssistantUI.open({api:WorkbenchAI.api,esc:escapeHtml,resumes:state,toast,confirm:WorkbenchAI.confirm});
 }
 
 function finishRecovery() {
@@ -553,6 +562,7 @@ $("#recover-draft").onclick = async () => {
   finishRecovery();
   changed();
   renderEditor();
+  await openRequestedMaterials();
 };
 $("#discard-draft").onclick = async () => {
   if (!recoveryPending) return;
@@ -560,6 +570,7 @@ $("#discard-draft").onclick = async () => {
   discardRecoveredDraft();
   finishRecovery();
   saveStatus("已保存到本机");
+  await openRequestedMaterials();
 };
 window.addEventListener("beforeunload", event => {
   if (editSequence !== savedSequence) {
@@ -587,7 +598,7 @@ async function start() {
     catch { recoveryDraft = null; }
     if (recoveryDraft?.state?.schemaVersion === 1) {
       showRecovery();
-    } else lockEditor(false);
+    } else { lockEditor(false);openRequestedMaterials(); }
     refreshPreview();
   } catch (error) {
     errorMessage(error.message);
