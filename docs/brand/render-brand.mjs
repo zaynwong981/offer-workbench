@@ -5,7 +5,7 @@ try{let port;for(let i=0;i<100&&!port;i++){await sleep(100);try{port=Number(fs.r
  const ver=await(await fetch(`http://127.0.0.1:${port}/json/version`)).json();ws=new WebSocket(ver.webSocketDebuggerUrl);await new Promise(r=>ws.addEventListener('open',r,{once:true}));let id=0;const pending=new Map();ws.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){pending.get(m.id)?.(m);pending.delete(m.id)}});const send=(method,params={},sessionId)=>new Promise(r=>{const n=++id;pending.set(n,r);ws.send(JSON.stringify({id:n,method,params,sessionId}))});
  const {result:{targetId}}=await send('Target.createTarget',{url:'about:blank'});const {result:{sessionId}}=await send('Target.attachToTarget',{targetId,flatten:true});const S=async(m,p)=>{const r=await send(m,p,sessionId);if(r.error)throw Error(JSON.stringify(r.error));return r.result};const ev=async expression=>(await S('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true})).result?.value;
  await S('Page.enable');const reports=[];
- const tasks=[{file:'品牌预览.html',out:'品牌预览.png',w:1440,h:1040}];
+ const tasks=[{file:'品牌预览.html',out:'品牌预览.png',w:1440,h:1040},{file:'../images/user-journey.svg',out:'../images/user-journey.png',w:2400,h:1540}];
  for(const [asset,prefix] of [['mark-blue.svg','mark-blue'],['mark-black.svg','mark-black'],['mark-white.svg','mark-white'],['avatar.svg','avatar']])for(const size of (prefix==='mark-blue'?[64,256,512,1024]:[512]))tasks.push({file:'logo/export.html?asset='+asset,out:`logo/${prefix}-${size}.png`,w:size,h:size});
  for(const size of [16,24,32])tasks.push({file:'logo/export.html?asset=mark-small.svg',out:`logo/icon-${size}.png`,w:size,h:size});
  tasks.push({file:'logo/export.html?asset=wordmark.svg',out:'logo/wordmark.png',w:1648,h:288});
