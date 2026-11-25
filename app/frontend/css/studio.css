@@ -115,3 +115,16 @@ body.rail-collapsed{--rail-width:68px}
 @media(max-width:650px){.resume-page .sidebar>.rail-toggle{float:right}.rail-collapsed .sidebar{display:flex;align-items:center;gap:6px;padding:8px 16px}.rail-collapsed .sidebar #versions{margin:0;flex:1;min-height:44px}.rail-collapsed .sidebar .versions-caption{margin:0;flex:0 0 44px}.rail-collapsed .sidebar .nav-item{margin-bottom:0;flex:0 0 44px}.rail-collapsed .sidebar>.rail-toggle{float:none;flex:0 0 44px}.rail-collapsed .workspace{margin-left:0}}
 
 .panel-divider::after{content:"↔";position:absolute;font-size:16px;color:#245bcc;opacity:0;background:#eaf1ff;border-radius:4px;padding:0 2px;pointer-events:none}.panel-divider:hover::after,.panel-divider:focus-visible::after{opacity:1}
+
+/* Optional project support; the Star action only opens the repository. */
+.support-note{display:flex;align-items:center;gap:16px;padding:18px 20px;margin:24px 0;border:1px solid #d5e3f6;border-radius:10px;background:#edf4ff;color:#29476f}
+.support-note p{flex:1;min-width:0;margin:0;font-size:14px;line-height:1.8;color:inherit}
+.support-star{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:5px;border:0;background:transparent;color:#d68b16;border-radius:6px}
+.support-star:hover{background:#e2edfb}.support-star svg{display:block;width:26px;height:26px;fill:currentColor;transform-origin:center;animation:support-star-turn 6s linear infinite}
+.support-star.is-paused svg{animation-play-state:paused}
+.support-link{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-height:40px;padding:8px 16px;border:1px solid #b9cdec;border-radius:6px;background:#fff;color:#245bcc;font-size:14px;white-space:nowrap;text-decoration:none}
+.support-link:hover{background:#dfeafe;border-color:#8eaee0;text-decoration:none}
+@keyframes support-star-turn{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.support-star svg{animation:none}}
+@media(max-width:600px){.support-note{flex-wrap:wrap;gap:12px;padding:16px}.support-note p{flex-basis:calc(100% - 48px)}.support-link{margin-left:48px;min-height:44px}}
+@media print{.support-note{display:none}}
