@@ -59,7 +59,7 @@ class WorkflowTests(unittest.TestCase):
         self.call('update',id=self.job['id'],status='interview');self.confirm(a)
         self.assertEqual(next(j for j in self.call('state')['jobs'] if j['id']==self.job['id'])['status'],'interview')
     def test_backup_includes_immutable_content_and_invalid_import_is_atomic(self):
-        a=self.artifact();self.confirm(a);backup=self.call('backup');self.assertEqual(backup['schemaVersion'],3)
+        a=self.artifact();self.confirm(a);backup=self.call('backup');self.assertEqual(backup['schemaVersion'],4)
         self.call('import',backup=backup);self.assertEqual(self.call('artifact',id=a['id'])['pdfSha256'],a['pdfSha256'])
         for field in ('pdfBase64','snapshotSha256'):
             bad=copy.deepcopy(backup);bad['artifacts'][0][field]='corrupt'

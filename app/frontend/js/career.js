@@ -24,7 +24,7 @@ function readSession() {
     } catch { return {}; }
 }
 const restoredSession = readSession();
-const validTabs = ["overview", "search", "pipeline", "calendar", "salary", "preferences"];
+const validTabs = ["overview", "search", "pipeline", "calendar", "salary", "preferences", "materials"];
 let salaryPrefill = null;
 let calendarJob = "";
 let career = {
@@ -58,6 +58,7 @@ const trackingDrafts = new Map(restoredSession.trackingDrafts || []),
     targetChoices = new Map(restoredSession.targetChoices || []);
 const chromeCommand = 'open -na "Google Chrome" --args --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --user-data-dir="$HOME/.career-studio-chrome" "https://www.zhipin.com/"';
 const titles = {
+    materials: ["", "素材与AI", "把可核实的经历整理好，再按岗位逐段准备。"],
     calendar: ["CAREER CALENDAR", "求职日历", "面试、笔试与截止时间，按北京时间统一安排。"],
     overview: ["CAREER OVERVIEW", "工作台", "从筛选到准备，在一个地方完成。"],
     search: ["DISCOVER OPPORTUNITIES", "找岗位", "按次检索 BOSS，或粘贴职位描述开始评估。"],
@@ -153,7 +154,7 @@ async function refresh() {
 }
 
 function versionOptions(selected) {
-    return resumes.versions.map(v => `<option value="${esc(v.id)}" ${v.id===selected?"selected":""}>${esc(v.name)}</option>`).join("");
+    return resumes.versions.filter(v=>!v.archived).map(v => `<option value="${esc(v.id)}" ${v.id===selected?"selected":""}>${esc(v.name)}</option>`).join("");
 }
 
 function statusOptions(selected) {
@@ -185,6 +186,7 @@ function readPreferences(form) {
 }
 
 function captureViewDraft() {
+    if (tab === "materials") window.AssistantUI?.capture();
     const prefs = $("#preferences-form"), search = $("#search-form"), filter = $("#pipeline-filter");
     if (prefs) {
         const value = readPreferences(prefs);
@@ -215,7 +217,7 @@ function navigate(next) {
     if ($("#eyebrow")) $("#eyebrow").textContent = t[0];
     $("#title").textContent = t[1];
     $("#subtitle").textContent = t[2];
-    $("#manual-add").hidden = ["salary", "calendar"].includes(tab);
+    $("#manual-add").hidden = ["salary", "calendar", "materials"].includes(tab);
     render();
     persistSession();
 }
@@ -223,6 +225,7 @@ function navigate(next) {
 function render() {
     captureViewDraft();
     ({
+        materials: () => window.AssistantUI.mount($("#content"), {api, esc, career, resumes, toast, confirm: confirmAction}),
         overview: renderOverview,
         search: renderSearch,
         pipeline: renderPipeline,
@@ -422,7 +425,7 @@ function fillSearchFromPreferences() {
 
 function renderPreferences() {
     const p = preferenceDraft || career.preferences || {};
-    $("#content").innerHTML = `<div class="preferences-layout"><form id="preferences-form" class="panel"><div class="panel-heading"><h2>我的求职偏好</h2><span class="tag">可带入搜索</span></div><p id="preferences-dirty" class="draft-hint" ${preferenceDraft?"":"hidden"}>有未保存修改，已保留在此浏览器标签页；切页或刷新后可继续。匹配仍使用已保存偏好。</p><div class="form-grid"><label>招聘类别<select name="recruitmentType">${recruitmentOptions(p.recruitmentType)}</select></label><label>求职节奏<select name="pace"><option value="passive" ${p.pace==="passive"?"selected":""}>在职观察，只看明显更好的机会</option><option value="exploring" ${p.pace==="exploring"?"selected":""}>主动探索，开放比较</option><option value="active" ${p.pace==="active"?"selected":""}>积极求职，尽快推进</option></select></label></div><p class="hint">校招按应届生条件，社招按非在校／应届经验条件，实习按实习岗位筛选；最终资格以岗位说明为准。</p><div class="preferences-grid">${preferenceGroups.slice(0,3).map(g=>preferenceGroup(g,p)).join("")}<div class="pref-group"><p class="pref-title">税前月薪（人民币 K）</p><label>常用区间<select id="preference-salary-band"><option value="" ${salaryBandValue(p)?"":"selected"}>自定义金额</option>${salaryBands().map(b=>`<option ${salaryBandValue(p)===b.label?"selected":""}>${esc(b.label)}</option>`).join("")}</select></label><div class="form-grid"><label>期望下限<input name="salaryMin" type="number" min="0" max="1000" step="0.5" value="${esc(p.salaryMin||0)}"></label><label>期望上限<input name="salaryMax" type="number" min="0" max="1000" step="0.5" value="${esc(p.salaryMax||0)}"></label></div><p class="hint">0 表示不限制。岗位薪资未知或口径不明确时标记待核实。</p></div><div class="pref-group"><label>优先办公区域 / 地点（每行一个）<textarea name="preferredLocations" rows="3" placeholder="深圳市南山区&#10;高新园地铁站">${esc(list(p.preferredLocations).join("\n"))}</textarea></label></div>${preferenceGroups.slice(3).map(g=>preferenceGroup(g,p)).join("")}<div class="pref-group"><label>排除公司（每行一个）<textarea name="excludedCompanies" rows="3" placeholder="不考虑的公司；已拒绝记录另保留在机会管理中">${esc(list(p.excludedCompanies).join("\n"))}</textarea></label></div></div><label>其他条件与待探索问题<textarea name="notes" rows="4" placeholder="例如：优先有成熟产研团队；薪资结构待比较">${esc(p.notes||"")}</textarea></label><div class="dialog-actions preferences-actions"><button class="secondary" type="button" data-action="discard-preferences">撤销未保存修改</button><button class="primary" type="submit">保存偏好</button></div></form><div class="preferences-support"><details class="panel"><summary>匹配与操作边界</summary><ul class="feature-list"><li>维护多方向简历与本地 PDF</li><li>按次检索岗位，或手动录入 JD</li><li>查看条件差距与简历中的匹配证据</li><li>复制岗位专属版本并自行微调</li><li>跟进沟通、投递、面试与拒绝记录</li></ul><div class="note">规则匹配只是辅助筛选，不是招聘成功概率。薪资、办公地址、校招资格等需向招聘方核实。</div><p class="muted">发送消息、交换联系方式和投递简历请在原平台完成，回来更新状态。没有后台采集或自动投递。</p></details><section class="panel"><h2>备份与迁移</h2><p class="hint">求职备份包含偏好、机会、日程与投递留档。完整简历与照片请在「简历工作台」另行下载备份。</p><div class="button-row"><button class="secondary" data-action="backup">导出求职备份</button><button class="secondary" data-action="restore">导入备份</button></div></section></div></div>`;
+    $("#content").innerHTML = `<div class="preferences-layout"><form id="preferences-form" class="panel"><div class="panel-heading"><h2>我的求职偏好</h2><a href="/career#materials" class="text-button">素材与AI配置</a><span class="tag">可带入搜索</span></div><p id="preferences-dirty" class="draft-hint" ${preferenceDraft?"":"hidden"}>有未保存修改，已保留在此浏览器标签页；切页或刷新后可继续。匹配仍使用已保存偏好。</p><div class="form-grid"><label>招聘类别<select name="recruitmentType">${recruitmentOptions(p.recruitmentType)}</select></label><label>求职节奏<select name="pace"><option value="passive" ${p.pace==="passive"?"selected":""}>在职观察，只看明显更好的机会</option><option value="exploring" ${p.pace==="exploring"?"selected":""}>主动探索，开放比较</option><option value="active" ${p.pace==="active"?"selected":""}>积极求职，尽快推进</option></select></label></div><p class="hint">校招按应届生条件，社招按非在校／应届经验条件，实习按实习岗位筛选；最终资格以岗位说明为准。</p><div class="preferences-grid">${preferenceGroups.slice(0,3).map(g=>preferenceGroup(g,p)).join("")}<div class="pref-group"><p class="pref-title">税前月薪（人民币 K）</p><label>常用区间<select id="preference-salary-band"><option value="" ${salaryBandValue(p)?"":"selected"}>自定义金额</option>${salaryBands().map(b=>`<option ${salaryBandValue(p)===b.label?"selected":""}>${esc(b.label)}</option>`).join("")}</select></label><div class="form-grid"><label>期望下限<input name="salaryMin" type="number" min="0" max="1000" step="0.5" value="${esc(p.salaryMin||0)}"></label><label>期望上限<input name="salaryMax" type="number" min="0" max="1000" step="0.5" value="${esc(p.salaryMax||0)}"></label></div><p class="hint">0 表示不限制。岗位薪资未知或口径不明确时标记待核实。</p></div><div class="pref-group"><label>优先办公区域 / 地点（每行一个）<textarea name="preferredLocations" rows="3" placeholder="深圳市南山区&#10;高新园地铁站">${esc(list(p.preferredLocations).join("\n"))}</textarea></label></div>${preferenceGroups.slice(3).map(g=>preferenceGroup(g,p)).join("")}<div class="pref-group"><label>排除公司（每行一个）<textarea name="excludedCompanies" rows="3" placeholder="不考虑的公司；已拒绝记录另保留在机会管理中">${esc(list(p.excludedCompanies).join("\n"))}</textarea></label></div></div><label>其他条件与待探索问题<textarea name="notes" rows="4" placeholder="例如：优先有成熟产研团队；薪资结构待比较">${esc(p.notes||"")}</textarea></label><div class="dialog-actions preferences-actions"><button class="secondary" type="button" data-action="discard-preferences">撤销未保存修改</button><button class="primary" type="submit">保存偏好</button></div></form><div class="preferences-support"><details class="panel"><summary>匹配与操作边界</summary><ul class="feature-list"><li>维护多方向简历与本地 PDF</li><li>按次检索岗位，或手动录入 JD</li><li>查看条件差距与简历中的匹配证据</li><li>复制岗位专属版本并自行微调</li><li>跟进沟通、投递、面试与拒绝记录</li></ul><div class="note">规则匹配只是辅助筛选，不是招聘成功概率。薪资、办公地址、校招资格等需向招聘方核实。</div><p class="muted">发送消息、交换联系方式和投递简历请在原平台完成，回来更新状态。没有后台采集或自动投递。</p></details><section class="panel"><h2>备份与迁移</h2><p class="hint">求职备份包含偏好、机会、日程与投递留档。完整简历与照片请在「简历工作台」另行下载备份。</p><div class="button-row"><button class="secondary" data-action="backup">导出求职备份</button><button class="secondary" data-action="restore">导入备份</button></div></section></div></div>`;
     mountPreferenceControls();
     $("#preferences-form").onsubmit = e => {
         e.preventDefault();
@@ -811,7 +814,7 @@ $("#backup-file").onchange = async e => {
     await busy(null, async () => {
         if (file.size > 64 * 1024 * 1024) throw new Error("备份文件不得超过64MB；其中PDF留档最多40MB。");
         const backup = JSON.parse(await file.text());
-        if (!await confirmAction("导入求职备份？", "导入会替换当前机会、日程、筛选方案和投递留档。请先导出当前备份；旧版备份没有的新字段将被清空。简历编辑区仍单独管理，投递快照随求职备份恢复。")) return;
+        if (!await confirmAction("导入求职备份？", "导入会替换当前机会、日程、筛选方案、投递留档、素材与AI草稿。请先导出当前备份；旧版备份没有的新字段将被清空。简历编辑区仍单独管理，投递快照随求职备份恢复。")) return;
         await api("/api/career/import", {
             backup
         });

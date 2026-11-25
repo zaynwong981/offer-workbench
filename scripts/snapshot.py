@@ -20,6 +20,7 @@ def snapshot(data_dir, output, config=None):
     with tempfile.TemporaryDirectory(dir=output.parent) as temp:
         stage=Path(temp)/'snapshot';(stage/'data').mkdir(parents=True)
         for source in data_dir.rglob('*'):
+            if '.secrets' in source.relative_to(data_dir).parts: continue
             if source.is_symlink():raise ValueError('不备份符号链接。')
             if not source.is_file() or source.name.endswith(('-wal','-shm','-journal')):continue
             dest=stage/'data'/source.relative_to(data_dir);dest.parent.mkdir(parents=True, exist_ok=True)

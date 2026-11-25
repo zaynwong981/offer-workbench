@@ -1,0 +1,100 @@
+[
+  {
+    "out": "品牌预览.png",
+    "missing": 0,
+    "width": 1440,
+    "height": 1040,
+    "overflow": false
+  },
+  {
+    "out": "../images/user-journey.png",
+    "missing": 0,
+    "width": 2400,
+    "height": 1540,
+    "overflow": false
+  },
+  {
+    "out": "logo/mark-blue-64.png",
+    "missing": 0,
+    "width": 64,
+    "height": 64,
+    "overflow": false
+  },
+  {
+    "out": "logo/mark-blue-256.png",
+    "missing": 0,
+    "width": 256,
+    "height": 256,
+    "overflow": false
+  },
+  {
+    "out": "logo/mark-blue-512.png",
+    "missing": 0,
+    "width": 512,
+    "height": 512,
+    "overflow": false
+  },
+  {
+    "out": "logo/mark-blue-1024.png",
+    "missing": 0,
+    "width": 1024,
+    "height": 1024,
+    "overflow": false
+  },
+  {
+    "out": "logo/mark-black-512.png",
+    "missing": 0,
+    "width": 512,
+    "height": 512,
+    "overflow": false
+  },
+  {
+    "out": "logo/mark-white-512.png",
+    "missing": 0,
+    "width": 512,
+    "height": 512,
+    "overflow": false
+  },
+  {
+    "out": "logo/avatar-512.png",
+    "missing": 0,
+    "width": 512,
+    "height": 512,
+    "overflow": false
+  },
+  {
+    "out": "logo/icon-16.png",
+    "missing": 0,
+    "width": 16,
+    "height": 16,
+    "overflow": false
+  },
+  {
+    "out": "logo/icon-24.png",
+    "missing": 0,
+    "width": 24,
+    "height": 24,
+    "overflow": false
+  },
+  {
+    "out": "logo/icon-32.png",
+    "missing": 0,
+    "width": 32,
+    "height": 32,
+    "overflow": false
+  },
+  {
+    "out": "logo/wordmark.png",
+    "missing": 0,
+    "width": 1648,
+    "height": 288,
+    "overflow": false
+  },
+  {
+    "out": "GitHub展示横幅.png",
+    "missing": 0,
+    "width": 1280,
+    "height": 640,
+    "overflow": false
+  }
+]

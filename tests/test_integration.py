@@ -184,7 +184,7 @@ class HTTPIntegrationTests(unittest.TestCase):
     def test_resume_limit_rejects_tailor_without_changing_opportunity(self):
         job = self.post("/api/career/upsert", {"job": {"title": "产品经理"}})["job"]
         expanded = copy.deepcopy(self.state)
-        while len(expanded["versions"]) < 30:
+        while len(expanded["versions"]) < 500:
             version = copy.deepcopy(expanded["versions"][0])
             version["id"] = "copy-" + str(len(expanded["versions"]))
             expanded["versions"].append(version)
@@ -300,7 +300,7 @@ class SourceReleaseTests(unittest.TestCase):
                 for name in names:
                     self.assertNotIn("/data/", name)
                     self.assertNotIn("/history/", name)
-                    if name not in {"offer-workbench/docs/images/calendar-demo.png", "offer-workbench/docs/images/user-journey.png"}:
+                    if name not in {"offer-workbench/docs/images/calendar-demo.png", "offer-workbench/docs/images/user-journey.png"} and not name.startswith("offer-workbench/docs/brand/"):
                         self.assertFalse(name.endswith((".pdf", ".sqlite3", ".jpg", ".png", "config.json")))
                 for name in names:
                     data = archive.read(name)

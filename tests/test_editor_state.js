@@ -153,9 +153,9 @@ async function test(name, run) {
 
   await test('copy limit is checked before creating unsavable state', async () => {
     const e = environment();await e.run('start()');
-    e.run("state.versions = Array.from({length:30},(_,i)=>({...structuredClone(initial.versions[0]),id:'v'+i})); activeId='v0'; ask=async()=> '多余副本'");
+    e.run("state.versions = Array.from({length:500},(_,i)=>({...structuredClone(initial.versions[0]),id:'v'+i})); activeId='v0'; ask=async()=> '多余副本'");
     await e.run('duplicateVersion()');
-    assert.equal(e.run('state.versions.length'), 30);
+    assert.equal(e.run('state.versions.length'), 500);
   });
 
   await test('job context survives version changes and links back to its opportunity', async () => {

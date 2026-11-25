@@ -33,7 +33,7 @@ from .seed import initial_state
 from .boss_adapter import BossAdapter, BossError
 from .career import CareerStore
 from .schedule import calendar_ics
-from . import workflow
+from . import workflow, assistant, llm
 VERSION = (Path(__file__).resolve().parents[2] / "VERSION").read_text(encoding="utf-8").strip()
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -98,8 +98,8 @@ def validate_state(state):
         text(entry["detail"], 400)
         bullets(entry["bullets"])
     versions = state["versions"]
-    if not isinstance(versions, list) or not 1 <= len(versions) <= 30:
-        raise ValueError("请保留 1 至 30 份简历。")
+    if not isinstance(versions, list) or not 1 <= len(versions) <= 500:
+        raise ValueError("请保留 1 至 500 份简历。")
     ids = set()
     for version in versions:
         for key in ["id", "name", "target", "summaryTitle", "workTitle"]:
@@ -109,6 +109,10 @@ def validate_state(state):
         ids.add(version["id"])
         if not 9 <= float(version["fontSize"]) <= 12:
             raise ValueError("正文字号需在 9 至 12 pt 之间。")
+        if version.get("kind", "master") not in ("master", "job") or not isinstance(version.get("archived", False), bool):
+            raise ValueError("简历分类或归档状态无效。")
+        if not 9 <= float(version.get("minFontSize", 9)) <= float(version["fontSize"]):
+            raise ValueError("最低字号应在9pt与正文字号之间。")
         bullets(version["summary"])
         if not isinstance(version["experience"], list) or len(version["experience"]) > 30:
             raise ValueError("工作经历格式有误。")
@@ -191,10 +195,11 @@ def render_pdf(state, version):
     header_height = name_height + contact_height + (target_height + 4 if version.get("showTarget") else 0) + 10
     body_top = PAGE_H - MARGIN - header_height - 4
     size = float(version["fontSize"])
+    floor = float(version.get("minFontSize", 9))
     blocks = layout_blocks(state, version, size)
     if version.get("autoFit", True):
-        while sum(b["height"] for b in blocks) > body_top - MARGIN and size > 9:
-            size = round(max(9, size - .1), 1)
+        while sum(b["height"] for b in blocks) > body_top - MARGIN and size > floor:
+            size = round(max(floor, size - .1), 1)
             blocks = layout_blocks(state, version, size)
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=(PAGE_W, PAGE_H), pageCompression=1)
@@ -353,12 +358,15 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/health":
             return self.send({"app": "career-studio", "root": str(ROOT), "version": VERSION})
         if route == "/api/about":
-            return self.send({"name": "OfferWorkbench", "version": VERSION, **RELEASE})
+            return self.send({"name": "Offer Workbench", "version": VERSION, **RELEASE})
         if route == "/api/config":
             return self.send({"exportDir": str(EXPORT_DIR), "version": VERSION})
+        if route == "/api/ai/config":
+            try: return self.send(llm.Config(self.server.career.path.parent).public())
+            except (ValueError,OSError): return self.send({"error":"AI配置无法读取，请检查本机配置文件。"},status=400)
         if route == "/api/boss/status":
             return self.send(self.server.boss.status())
-        if route in {"/api/career/state", "/api/career/backup", "/api/career/calendar.ics"}:
+        if route in {"/api/career/state", "/api/career/backup", "/api/career/calendar.ics", "/api/career/assist-state"}:
             try:
                 with LOCK:
                     state = json.loads(self.server.state_path.read_text(encoding="utf-8"))
@@ -385,8 +393,8 @@ class Handler(BaseHTTPRequestHandler):
         static.update({"/studio.css": ("app/frontend/css/studio.css", "text/css; charset=utf-8"), "/ui.js": ("app/frontend/js/ui.js", "text/javascript; charset=utf-8"), "/photo-crop.js": ("app/frontend/js/photo-crop.js", "text/javascript; charset=utf-8"), "/boss-help": ("app/frontend/guide.html", "text/html; charset=utf-8"), "/boss-help.js": ("app/frontend/js/boss-help.js", "text/javascript; charset=utf-8")})
         static.update({"/calendar-ui.js": ("app/frontend/js/calendar-ui.js", "text/javascript; charset=utf-8"), "/calendar.css": ("app/frontend/css/calendar.css", "text/css; charset=utf-8")})
         static.update({"/doc-reader.js": ("app/frontend/js/doc-reader.js", "text/javascript; charset=utf-8"), "/doc-reader.css": ("app/frontend/css/doc-reader.css", "text/css; charset=utf-8")})
-        for document in ("CHANGELOG.md", "SALARY_POLICY_SOURCES.md", "BOSS_FILTER_SOURCES.md"):
-            file = "docs/reference/" + document if document in ("SALARY_POLICY_SOURCES.md", "BOSS_FILTER_SOURCES.md") else document
+        for document in ("CHANGELOG.md", "SALARY_POLICY_SOURCES.md", "BOSS_FILTER_SOURCES.md", "AI_PROVIDERS.md"):
+            file = "docs/reference/" + document if document in ("SALARY_POLICY_SOURCES.md", "BOSS_FILTER_SOURCES.md", "AI_PROVIDERS.md") else document
             static["/docs/" + document] = (file, "text/plain; charset=utf-8")
         static["/docs/images/calendar-demo.png"] = ("docs/images/calendar-demo.png", "image/png")
         static["/docs/images/user-journey.png"] = ("docs/images/user-journey.png", "image/png")
@@ -397,6 +405,10 @@ class Handler(BaseHTTPRequestHandler):
         static["/job-workflow.css"] = ("app/frontend/css/job-workflow.css", "text/css; charset=utf-8")
         static["/workspace-layout.js"] = ("app/frontend/js/workspace-layout.js", "text/javascript; charset=utf-8")
         static["/site-info.js"] = ("app/frontend/js/site-info.js", "text/javascript; charset=utf-8")
+        for name,folder,mime in [("assistant-ui.js","js","text/javascript"),("assistant.css","css","text/css"),("brand.css","css","text/css")]:
+            static["/"+name] = ("app/frontend/"+folder+"/"+name,mime+"; charset=utf-8")
+        for name,mime in [("wordmark.svg","image/svg+xml"),("mark-blue.svg","image/svg+xml"),("favicon.ico","image/x-icon")]:
+            static["/brand/"+name] = ("docs/brand/logo/"+name,mime)
         static["/guide"] = ("app/frontend/guide.html", "text/html; charset=utf-8")
         static["/docs/USER_GUIDE.md"] = ("docs/USER_GUIDE.md", "text/plain; charset=utf-8")
         static["/help"] = ("docs/USER_GUIDE.md", "text/plain; charset=utf-8")
@@ -419,8 +431,28 @@ class Handler(BaseHTTPRequestHandler):
             route = urlparse(self.path).path
             allowed_routes = {"/api/save", "/api/pdf", "/api/export-pdf", "/api/export-all", "/api/boss/search", "/api/boss/detail"}
             allowed_routes.update("/api/career/" + action for action in ("preferences", "upsert", "update", "delete", "match", "import", "tailor", "export", "event-save", "event-delete", "event-check", "view", "decision", "preparation", "plan-save", "plan-delete", "submission-confirm"))
+            allowed_routes.update("/api/career/"+a for a in ("material-save","material-delete","draft-delete","jd-insights"))
+            allowed_routes.update("/api/ai/"+a for a in ("config","prepare","generate","apply","undo"))
             if route not in allowed_routes:
                 return self.send({"error": "接口不存在。"}, status=404)
+            if route == "/api/ai/config":
+                return self.send(llm.Config(self.server.career.path.parent).save(payload))
+            if route == "/api/ai/generate":
+                return self.send(assistant.generate(self.server.career,payload))
+            if route in ("/api/ai/prepare","/api/ai/apply","/api/ai/undo"):
+                with LOCK:
+                    state=json.loads(self.server.state_path.read_text(encoding="utf-8"))
+                    if route.endswith("prepare"):return self.send(assistant.prepare(self.server.career,payload,state))
+                    previous=copy.deepcopy(state);undo=route.endswith("undo")
+                    draft,value=assistant.apply(self.server.career,payload,state,undo)
+                    validate_state(state)
+                    assistant.begin_apply(self.server.career,draft,value,previous,undo)
+                    try:
+                        commit_resume(self.server.state_path,state,previous)
+                        assistant.finish_apply(self.server.career,draft,value,undo)
+                    finally:
+                        assistant.recover_applies(self.server.career,json.loads(self.server.state_path.read_text(encoding="utf-8")))
+                    return self.send({"revision":state["revision"],"message":"已撤销这一段" if undo else "已写入所选简历段落"})
             if route == "/api/boss/search":
                 return self.send(self.server.boss.search(payload.get("filters", {})))
             if route == "/api/boss/detail":
@@ -453,7 +485,7 @@ class Handler(BaseHTTPRequestHandler):
                 buf = io.BytesIO()
                 files = []
                 with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as archive:
-                    for i, version in enumerate(state["versions"], 1):
+                    for i, version in enumerate([v for v in state["versions"] if not v.get("archived")], 1):
                         pdf, _ = render_pdf(state, version)
                         files.append(save_export(filename(state, version), pdf))
                         archive.writestr(str(i).zfill(2) + "-" + filename(state, version), pdf)
@@ -481,7 +513,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 previous = copy.deepcopy(state)
                 tailored = copy.deepcopy(version)
-                tailored.update({"id": str(uuid.uuid4()), "name": (job["company"] + " · " + job["title"])[:200], "target": job["title"][:200], "tailoredFor": job["id"], "sourceVersionId": version["id"]})
+                tailored.update({"id": str(uuid.uuid4()), "name": (job["company"] + " · " + job["title"])[:200], "target": job["title"][:200], "tailoredFor": job["id"], "sourceVersionId": version["id"], "kind":"job", "archived":False})
                 state["versions"].append(tailored)
                 validate_state(state)
                 commit_resume(self.server.state_path, state, previous)
@@ -529,6 +561,8 @@ def main():
     if not server.state_path.exists():
         atomic_json(server.state_path, initial_state())
     server.career = CareerStore(args.data_dir)
+    assistant.recover_running(server.career)
+    assistant.recover_applies(server.career,json.loads(server.state_path.read_text(encoding="utf-8")))
     server.boss = BossAdapter()
     print("简历工作台 " + url, flush=True)
     if args.open:
