@@ -132,3 +132,6 @@
  const originalSubmit=f.onsubmit;f.onsubmit=e=>{if(!f.elements.title.value.trim()&&!f.elements.description.value.trim()&&!f.elements.url.value.trim()){e.preventDefault();$('#manual-error').hidden=false;$('#manual-error').textContent='先粘贴职位描述或岗位链接，再保存。';return}editingJob={...(editingJob||{}),source:editingJob?.source||'manual',sourceLabel:f.elements.sourceLabel.value};return originalSubmit(e)};
  if($('#search-form')||$('#pipeline-filter'))render();
 })();
+
+/* Explicit handoff; no generation occurs when opening the assistant. */
+if(typeof MutationObserver!=="undefined") new MutationObserver(()=>{const form=document.querySelector('#preparation-form');if(form&&!form.querySelector('[data-assist-link]')&&activeJob){const a=document.createElement('a');a.dataset.assistLink='true';a.className='secondary';a.textContent='用素材与AI准备';a.href='/career?assistJob='+encodeURIComponent(activeJob.id)+'#materials';form.prepend(a);}}).observe(document.querySelector('#job-detail'),{childList:true,subtree:true});

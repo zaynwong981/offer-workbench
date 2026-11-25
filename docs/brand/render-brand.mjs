@@ -8,7 +8,7 @@ try{let port;for(let i=0;i<100&&!port;i++){await sleep(100);try{port=Number(fs.r
  const tasks=[{file:'品牌预览.html',out:'品牌预览.png',w:1440,h:1040}];
  for(const [asset,prefix] of [['mark-blue.svg','mark-blue'],['mark-black.svg','mark-black'],['mark-white.svg','mark-white'],['avatar.svg','avatar']])for(const size of (prefix==='mark-blue'?[64,256,512,1024]:[512]))tasks.push({file:'logo/export.html?asset='+asset,out:`logo/${prefix}-${size}.png`,w:size,h:size});
  for(const size of [16,24,32])tasks.push({file:'logo/export.html?asset=mark-small.svg',out:`logo/icon-${size}.png`,w:size,h:size});
- tasks.push({file:'logo/export.html?asset=wordmark.svg',out:'logo/wordmark.png',w:1400,h:288});
+ tasks.push({file:'logo/export.html?asset=wordmark.svg',out:'logo/wordmark.png',w:1648,h:288});
  tasks.push({file:'github-banner.html',out:'GitHub展示横幅.png',w:1280,h:640});
  for(const t of tasks){await S('Emulation.setDeviceMetricsOverride',{width:t.w,height:t.h,deviceScaleFactor:1,mobile:false});await S('Emulation.setDefaultBackgroundColorOverride',{color:{r:0,g:0,b:0,a:0}});
  const [file,query]=t.file.split('?');await S('Page.navigate',{url:pathToFileURL(path.join(root,file)).href+(query?'?'+query:'')});

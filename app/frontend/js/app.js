@@ -232,7 +232,9 @@ function titleField(path) {
 
 function renderNav() {
   $("#common-nav").classList.toggle("active", commonView);
-  $("#versions").innerHTML = state.versions.map(v => `<button class="nav-item version ${!commonView && v.id === activeId ? "active" : ""}" data-id="${escapeHtml(v.id)}">${escapeHtml(v.name)}</button>`).join("");
+  const query=($("#version-search")?.value||"").toLowerCase(),filter=$("#version-filter")?.value||"active";
+  const shown=state.versions.filter(v=>v.name.toLowerCase().includes(query)&&(filter==="all"||filter==="archived"?filter==="all"||v.archived:!v.archived&&(filter==="active"||(v.kind||(v.tailoredFor?"job":"master"))===filter)));
+  $("#versions").innerHTML = shown.map(v => `<button class="nav-item version ${!commonView && v.id === activeId ? "active" : ""}" title="${escapeHtml(v.name)}" data-id="${escapeHtml(v.id)}">${escapeHtml(v.name)}</button>`).join("");
 }
 
 function renderEditor() {
@@ -276,15 +278,19 @@ function renderEditor() {
         <div class="card-header"><h2>版本设置</h2><div class="version-actions"><button class="muted-button" id="duplicate">复制版本</button><button class="muted-button" id="delete-version">删除版本</button></div></div>
         ${field("版本名称（用于管理及文件名）", [...path, "name"])}
         ${field("求职方向", [...path, "target"])}
+        <div class="layout-settings"><label>用途<select data-path="${attrPath([...path,"kind"])}"><option value="master" ${(version.kind||(version.tailoredFor?'job':'master'))==='master'?'selected':''}>方向母版</option><option value="job" ${(version.kind||(version.tailoredFor?'job':'master'))==='job'?'selected':''}>岗位草稿</option></select></label>${check("归档此版本（不出现在默认列表和批量导出中）",[...path,"archived"])}</div>
+        <button type="button" id="open-assistant" class="secondary">保存并用素材与AI准备</button>
         ${check("在 PDF 顶部显示求职方向", [...path, "showTarget"])}
         <div class="layout-settings">
           <label>正文字号 <select data-path="${attrPath([...path, "fontSize"])}" data-number="true">${[9,9.5,10,10.5,11,11.5,12].map(n => `<option value="${n}" ${n === version.fontSize ? "selected" : ""}>${n} pt</option>`).join("")}</select></label>
+          <label>最低可读字号<select data-path="${attrPath([...path,"minFontSize"])}" data-number="true">${[9,9.5,10,10.5,11,11.5,12].map(n=>`<option value="${n}" ${(version.minFontSize||9)===n?'selected':''}>${n} pt</option>`).join('')}</select></label>
           ${check("自动适配一页", [...path, "autoFit"])}
         </div>
-        <p class="hint">自动适配最低使用 9 pt，内容较长时会完整分页。</p>
+        <p class="hint">最低字号由你决定，不会小于9pt；达到下限仍放不下时完整分页，不截断内容。</p>
       </div>
       <div class="card"><div class="card-header">${titleField([...path, "summaryTitle"])}</div>${bulletEditors([...path, "summary"])}</div>
       <div class="card"><div class="card-header">${titleField([...path, "workTitle"])}</div>${entryEditors([...path, "experience"])}<button class="add-button" data-action="add-experience" data-list="${attrPath([...path, "experience"])}">＋ 添加工作／项目经历</button></div>`;
+    $("#open-assistant").onclick = async () => { if(!await save())return;location.href='/career?assistVersion='+encodeURIComponent(activeId)+'#materials'; };
     $("#duplicate").onclick = duplicateVersion;
     $("#delete-version").onclick = deleteVersion;
   }
@@ -377,7 +383,7 @@ async function downloadPdf(all = false) {
 
 async function duplicateVersion() {
   if (!readyToEdit()) return;
-  if (state.versions.length >= 30) return toast("最多保留 30 份简历。请先备份并整理不再使用的版本。");
+  if (state.versions.length >= 500) return toast("最多保留 500 份简历。请先备份并整理不再使用的版本。");
   const source = activeVersion();
   const name = await ask("复制简历版本", "可以用目标公司命名，例如《腾讯-CSIG-AI产品经理-姓名-1年经验-25K》", source.name + " · 副本");
   if (name === null || !name.trim()) return;
@@ -386,6 +392,7 @@ async function duplicateVersion() {
   copy.name = name.trim();
   delete copy.tailoredFor;
   delete copy.sourceVersionId;
+  copy.kind="master";copy.archived=false;
   state.versions.push(copy);
   activeId = copy.id;
   commonView = false;
@@ -433,6 +440,9 @@ $("#editor").addEventListener("input", event => {
   const parent = pathValue(path.slice(0, -1));
   const key = path.at(-1);
   parent[key] = input.type === "checkbox" ? input.checked : input.dataset.number ? Number(input.value) : input.value;
+  if (key === "fontSize" && parent.minFontSize>parent.fontSize) parent.minFontSize=parent.fontSize;
+  if (key === "minFontSize" && parent.fontSize<parent.minFontSize) parent.fontSize=parent.minFontSize;
+  if (["fontSize","minFontSize","archived","kind"].includes(key)) renderEditor();
   if (input.tagName === "TEXTAREA") autoHeight(input);
   if (key === "name" && path[0] === "versions") {
     renderNav();
@@ -568,7 +578,7 @@ async function start() {
     if (!response.ok) throw new Error("本地服务读取失败，请重新打开工作台。");
     state = await response.json();
     const config = await (await fetch("/api/config")).json();
-    $("#export-destination").textContent = config.exportDir;
+    if($("#export-destination")) $("#export-destination").textContent = config.exportDir;
     activeId = state.versions.some(v => v.id === activeId) ? activeId : state.versions[0].id;
     renderEditor();
     saveStatus("已保存到本机");
@@ -584,4 +594,6 @@ async function start() {
   }
 }
 lockEditor(true);
+if($("#version-search")) $("#version-search").oninput=renderNav;
+if($("#version-filter")) $("#version-filter").onchange=renderNav;
 start();

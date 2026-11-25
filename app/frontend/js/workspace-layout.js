@@ -15,6 +15,7 @@
     pipeline:'M3 6h18v15H3z M8 6V3h8v3 M3 11h18 M10 11v3h4v-3',
     calendar:'M4 5h16v16H4z M8 3v4 M16 3v4 M4 10h16 M8 14h2 M14 14h2 M8 18h2',
     salary:'M5 3h14v18H5z M8 6h8v4H8z M8 14h1 M15 14h1 M8 18h1 M15 18h1',
+    materials:'M4 3h12v18H4z M8 7h5 M8 11h5 M18 8h3v13h-3',
     preferences:'M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6',
     profile:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-3a8 8 0 0 1 16 0v3',
     file:'M5 3h9l5 5v13H5z M14 3v6h5 M8 13h8 M8 17h6',
