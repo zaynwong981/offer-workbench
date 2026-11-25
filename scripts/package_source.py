@@ -5,6 +5,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = [
+    "app/backend/llm.py", "app/backend/assistant.py", "app/frontend/js/assistant-ui.js", "app/frontend/css/assistant.css", "app/frontend/css/brand.css", "tests/test_assistant.py", "docs/reference/AI_PROVIDERS.md",
     # Public brand assets only; private campaigns are stored outside this repository.
     'docs/brand/GitHub展示横幅.png',
     'docs/brand/README.md',

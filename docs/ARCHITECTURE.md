@@ -18,11 +18,11 @@
 
 日程字段：id、jobId、title、kind、status、allDay（仅知日期）、start、end、location、notes、revision。非全天采用 ISO 分钟字符串和 +08:00；区间采用 [start,end)，相接不冲突。仅知日期不推测冲突；deadline／offer 为时间点，可提示落入活动区间，但不会虚构持续时间。编辑／删除校验 revision 防止静默覆盖其他窗口。
 
-求职 JSON 备份 schemaVersion=3，包含 events、searchPlans、artifacts、submissions；可读 v1/v2。导入旧备份意味着恢复到该版本所含数据，新字段恢复为空；v1 不含日程，UI 明确提示，导入前应导出当前备份。所有校验通过后单事务替换，失败不会删数据。简历备份仍独立，schemaVersion=1。
+求职 JSON 备份 schemaVersion=4，包含 events、searchPlans、artifacts、submissions、materials、aiDrafts；可读 v1/v2/v3。导入旧备份意味着恢复到该版本所含数据，新字段恢复为空；v1 不含日程，UI 明确提示，导入前应导出当前备份。所有校验通过后单事务替换，失败不会删数据。简历备份仍独立，schemaVersion=1。
 
 ICS 使用稳定 UID、SEQUENCE、UTF-8 75 字节折行；时间转换为 UTC；纯日期使用 VALUE=DATE。完成和待定事项不占忙闲。无 VALARM，提醒交给用户日历客户端。ICS 是快照，不能当成实时同步；重新导入的更新／去重由客户端决定。
 
-兼容性：公开显示名为 OfferWorkbench，原 `/api/career/*`、备份 kind `career-studio` 和服务 app 标识保留，避免破坏现有数据及脚本。旧浏览器草稿通过通用旧键后缀迁移到新的中性键名。
+兼容性：公开显示名为 Offer Workbench，原 `/api/career/*`、备份 kind `career-studio` 和服务 app 标识保留，避免破坏现有数据及脚本。旧浏览器草稿通过通用旧键后缀迁移到新的中性键名。
 
 0.6.1 将源码整理到 app/backend 与 app/frontend；根目录 server.py 仅负责启动。旧静态 URL、/boss-help、API 与本地 data/config/export 位置保持兼容；/guide 是使用指引，/help 返回 docs/USER_GUIDE.md，/api/about 读取 VERSION 与 RELEASE.json。PDF 排版参数与 SQLite schema 不变。
 
@@ -35,3 +35,13 @@ ICS 使用稳定 UID、SEQUENCE、UTF-8 75 字节折行；时间转换为 UTC；
 `preference-options.json`保存离线城市编码、两级岗位／业务目录、薪资和经验条件；`preference_options.py`负责校验与受限编码转换，随career state提供前端。招聘类别存于原preferences和searchPlans JSON，无新表、不重写原数据；旧备份默认all。目录不写入用户备份。
 
 BOSS适配器生成固定官方域名的URL，只传CLI已支持的白名单参数以避开旧名称映射；不接受任意外部URL。实习使用CLI原生jobType，不以实习请求代替校招。风险锁、单页、无自动重试保持原行为。能力依据见reference/BOSS_FILTER_SOURCES.md；离线参数验证不等于线上岗位结果验收。
+
+## 0.8.0 素材与可选模型
+
+`assistant.py`管理materials、ai_drafts、ai_usage三张新增表，不重写旧记录；`llm.py`统一配置、协议与有界请求。前端assistant-ui.js展示发送范围、原文对照和配置；默认停用AI。请求在全局简历锁之外执行，预算与一次性确认通过SQLite事务先登记。服务启动将中断请求标为失败，不自动重试；成本可能已产生。
+
+采纳与撤销先在SQLite登记写入意图，再原子写入resumes.json，最后更新草稿。启动及请求结束时对照简历revision与目标段落恢复状态，冲突时只提示，不覆盖。素材和简历本身沿用版本冲突检查。
+
+密钥位于data/.secrets/llm.json，POSIX目录700、文件600，Windows沿用用户目录ACL；前端只收到hasKey，普通备份及升级快照排除.secrets。接口HTTPS，显式允许的回环地址才可HTTP；不跟随重定向、45秒超时、不重试、响应最多2MB。OpenAI Responses发送store:false；服务商的其他保留政策由用户确认。
+
+预算按北京时间日界，以输入UTF8字节数加最大输出Token保守预留；失败不返还额度，不冒充服务商账单。备份恢复草稿强制imported且删除确认散列／写入意图，不能重放操作。最多1000素材、100草稿、500简历；单次最多20素材、100统计岗位。
