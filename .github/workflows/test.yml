@@ -22,6 +22,6 @@ jobs:
         with:
           node-version: 22
       - run: node tests/test_editor_state.js
-      - run: node --test tests/test_career_ui.js tests/test_salary_engine.js tests/test_salary_ui.js tests/test_salary_job.js tests/test_photo_crop.js tests/test_job_rules.js
+      - run: node --test tests/test_career_ui.js tests/test_salary_engine.js tests/test_salary_ui.js tests/test_salary_job.js tests/test_photo_crop.js tests/test_job_rules.js tests/test_ai_analysis.js
       - run: python scripts/privacy_check.py
       - run: python scripts/package_source.py

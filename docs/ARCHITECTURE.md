@@ -49,3 +49,7 @@ BOSS适配器生成固定官方域名的URL，只传CLI已支持的白名单参�
 ## 0.8.1 多模型兼容
 
 私有配置schemaVersion 2包含revision、activeId和models。读取旧单配置时只在内存映射，第一次保存原子迁移。编辑检查revision，删除选中模型后清空activeId，不自动选另一个。provider.env仅在本工具读取；环境密钥限对应官方地址，不能随自定义URL流出。
+
+## 0.8.2 结构化分析
+
+新extract/explore草稿带analysisVersion=2，由analysis_results.py验证分类标签、画像或探索方向，校验引用属于本次来源，限制长度与数量并去重。前端ai-analysis.js负责安全转义、紧凑展示及复制；旧items草稿保留兼容。SQLite表及求职备份schemaVersion=4不变，导入时验证新结果，失败不覆盖原数据。
