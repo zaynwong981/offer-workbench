@@ -9,13 +9,14 @@
   function modal(title,html,wide=false){
     const d=document.createElement('dialog');d.className='ai-dialog'+(wide?' ai-dialog-wide':'');d.innerHTML=`<div class="ai-dialog-head"><h2>${esc(title)}</h2><button type="button" data-ai-close aria-label="关闭">×</button></div><div class="ai-dialog-body">${html}</div><p class="ai-message" role="status"></p>`;document.body.append(d);d.querySelector('[data-ai-close]').onclick=()=>d.close();d.addEventListener('close',()=>d.remove(),{once:true});d.showModal();window.StudioUI?.sync();return d;
   }
-  const message=(d,text,error=false)=>{if(!d.isConnected)return;const p=d.querySelector('.ai-message');p.textContent=text;p.classList.toggle('is-error',error)};
+  const message=(d,text,error=false)=>{if(!d.isConnected)return;const p=d.querySelector('.ai-message');p.textContent=text;p.classList.toggle('is-error',error);if(error){p.append(document.createTextNode(' 可先检查所选正文和模型配置；格式或引用错误可换用更擅长结构化输出的模型，再手动重试。'));const a=document.createElement('button');a.type='button';a.className='text-button';a.textContent='查看AI规则与排障';a.onclick=()=>window.WorkbenchDocs?.open(a,'README.md','AI规则与排障');p.append(a)}};
   async function busy(d,button,fn){if(button.disabled)return;button.disabled=true;button.setAttribute('aria-busy','true');message(d,'正在处理…');try{await fn()}catch(e){message(d,e.message,true)}finally{button.removeAttribute('aria-busy');if(button.isConnected)button.disabled=button.dataset.locked==='true'}}
   async function confirm(title,text){const d=modal(title,`<p>${esc(text)}</p><div class="button-row"><button data-no class="secondary">取消</button><button data-yes class="primary">确认</button></div>`);return new Promise(resolve=>{let yes=false;d.querySelector('[data-no]').onclick=()=>d.close();d.querySelector('[data-yes]').onclick=()=>{yes=true;d.close()};d.addEventListener('close',()=>resolve(yes),{once:true})})}
   function modelSelect(){return `<label>使用模型<select name="modelId">${opts((config?.models||[]).filter(m=>m.enabled).map(m=>[m.id,m.model+' · '+config.presets[m.provider].label]),config?.activeId)}</select></label>`}
   async function mountSettings(host){
     try{await refresh();if(!host.isConnected)return;
       host.innerHTML=`<div class="panel-heading"><div><h2>AI模型</h2><p class="hint">添加后，可在简历中直接润色，也可分析岗位要求和探索方向。</p></div><button class="primary" data-model-add>添加模型</button></div><div class="model-list">${config.models.map(m=>`<article class="model-row"><div><strong>${esc(m.model)}</strong><small>${esc(config.presets[m.provider].label)} · ${m.id===config.activeId?'当前使用':'未选用'}${m.hasKey?'':' · 未设置密钥'}</small></div><div class="button-row"><button data-model-use="${esc(m.id)}" ${m.id===config.activeId?'disabled':''}>${m.id===config.activeId?'使用中':'使用'}</button><button data-model-edit="${esc(m.id)}">编辑</button><button data-model-test="${esc(m.id)}">测试连接</button><button data-model-delete="${esc(m.id)}">删除</button></div></article>`).join('')||'<p class="empty">还没有添加模型。手动编辑简历和岗位整理照常可用。</p>'}</div><p class="hint" data-model-status role="status"></p>`;
+      if(host.dataset.focusModel){delete host.dataset.focusModel;host.tabIndex=-1;host.scrollIntoView({block:'center',behavior:'smooth'});host.focus({preventScroll:true})}
       host.querySelector('[data-model-add]').onclick=()=>editModel(null,()=>mountSettings(host));
       host.querySelectorAll('[data-model-edit]').forEach(b=>b.onclick=()=>editModel(config.models.find(m=>m.id===b.dataset.modelEdit),()=>mountSettings(host)));
       host.querySelectorAll('[data-model-use],[data-model-delete],[data-model-test]').forEach(b=>b.onclick=async()=>{b.disabled=true;const status=host.querySelector('[data-model-status]');try{if(b.dataset.modelTest){status.textContent='正在发送固定测试文字…';const r=await api('/api/ai/test',{id:b.dataset.modelTest});if(host.isConnected)status.textContent=r.message;return}const del=!!b.dataset.modelDelete;if(del&&!await confirm('删除这个模型？','只删除连接配置，不会删除简历或历史建议。删除当前模型后需重新选择，不自动切换服务商。'))return;await api('/api/ai/model-'+(del?'delete':'select'),{id:b.dataset.modelDelete||b.dataset.modelUse,configRevision:config.revision});await mountSettings(host)}catch(e){if(host.isConnected)status.textContent=e.message}finally{if(b.isConnected)b.disabled=false}});
@@ -34,31 +35,66 @@
   }
   async function polish(context){
     await refresh();if(!ready())return;
-    const library=await api('/api/career/assist-state');
-    const target=structuredClone(context.target),original=context.original;
-    const d=modal('润色这一段',`<div class="ai-toolbar">${modelSelect()}<label>希望怎样修改（选填）<input id="rewrite-instruction" placeholder="如：突出产品判断，减少技术细节" maxlength="2000"></label></div><details><summary>参考经历素材（选填，最多20条）</summary><div class="material-picks">${library.materials.map(m=>`<label><input type="checkbox" name="materialIds" value="${esc(m.id)}"><span>${esc(m.title)} · ${m.verification==='verified'?'已核实':'待核实'}</span></label>`).join('')||'还没有保存素材，可先依据当前段落润色。'}</div></details><div class="ai-compare"><section><h3>当前内容</h3><div class="ai-original">${esc(original)}</div></section><div class="ai-between"><button class="secondary" data-generate="advice">修改意见</button><button class="ai-polish-button" data-generate="rewrite">一键润色</button><button class="secondary" data-generate="compress">精简文字</button></div><section><h3>修改后</h3><textarea id="rewrite-result" rows="12" placeholder="建议将在这里展示，你也可以继续微调。"></textarea><div id="rewrite-advice"></div><div class="button-row"><button class="primary" data-apply disabled>替换这一段</button><button class="secondary" data-undo hidden>撤销替换</button></div></section></div>`,true);
-    let result=null;
-    d.querySelectorAll('[data-generate]').forEach(b=>b.onclick=()=>busy(d,b,async()=>{const buttons=[...d.querySelectorAll('[data-generate]')];buttons.forEach(x=>x.disabled=true);const apply=d.querySelector('[data-apply]'),undo=d.querySelector('[data-undo]'),wasApply=apply.disabled;apply.disabled=true;undo.disabled=true;try{const r=await api('/api/ai/run',{task:b.dataset.generate,modelId:d.querySelector('[name=modelId]').value,target,materialIds:[...d.querySelectorAll('[name=materialIds]:checked')].map(x=>x.value),instruction:d.querySelector('#rewrite-instruction').value});if(!d.isConnected)return;if(r.status!=='ready')throw Error(r.error||'未生成建议，请稍后重试。');if(r.task==='advice'){d.querySelector('#rewrite-advice').textContent=r.result.text}else{result=r;d.querySelector('#rewrite-result').value=r.result.text;d.querySelector('[data-apply]').dataset.locked='false';d.querySelector('[data-apply]').disabled=false;d.querySelector('[data-undo]').hidden=true}message(d,'建议已生成。确认符合实际经历后，可替换这一段。')}finally{buttons.forEach(x=>x.disabled=false);apply.disabled=result?false:wasApply;undo.disabled=false}}));
-    d.querySelector('[data-apply]').onclick=e=>busy(d,e.target,async()=>{if(!result)return;if(context.beforeApply&&!await context.beforeApply())throw Error('请先解决简历保存冲突。');await api('/api/ai/apply',{id:result.id,text:d.querySelector('#rewrite-result').value,verified:true});await context.onApplied();d.querySelector('[data-apply]').dataset.locked='true';d.querySelector('[data-apply]').disabled=true;d.querySelectorAll('[data-generate]').forEach(x=>x.disabled=true);d.querySelector('[data-undo]').hidden=false;message(d,'这一段已保存，其他内容保持不变。')});
-    d.querySelector('[data-undo]').onclick=e=>busy(d,e.target,async()=>{if(context.beforeApply&&!await context.beforeApply())return;await api('/api/ai/undo',{id:result.id});await context.onApplied();d.querySelector('[data-undo]').hidden=true;d.querySelector('[data-apply]').dataset.locked='true';d.querySelector('[data-apply]').disabled=true;d.querySelectorAll('[data-generate]').forEach(x=>x.disabled=false);result=null;message(d,'已恢复原文。')});
+    const target=structuredClone(context.target);
+    let original=context.original,result=null,accepted=null,inFlight=false;
+    const d=modal('润色这一段',`<div class="ai-toolbar">${modelSelect()}<label>希望怎样修改（选填）<input id="rewrite-instruction" placeholder="如：突出产品判断，减少技术细节" maxlength="2000"></label></div><div class="ai-compare"><section><h3>当前内容</h3><div class="ai-original">${esc(original)}</div></section><div class="ai-between"><button class="secondary" data-generate="compress">精简文字</button><button class="ai-polish-button" data-generate="rewrite">一键润色</button><button class="ai-confirm-button" data-apply disabled>确认替换</button></div><section><h3>修改后</h3><textarea id="rewrite-result" aria-label="修改后内容" placeholder="建议将在这里展示，你也可以继续微调。"></textarea></section></div><div class="ai-undo-row"><button class="text-button" data-undo hidden>撤销最近一次替换</button></div>`,true);
+    const apply=d.querySelector('[data-apply]'),undo=d.querySelector('[data-undo]'),buttons=[...d.querySelectorAll('[data-generate]')];
+    const lock=value=>{inFlight=value;buttons.forEach(b=>b.disabled=value);apply.disabled=value||!result;undo.disabled=value;d.querySelector('#rewrite-result').readOnly=value};
+    async function action(button,fn){if(inFlight||button.disabled)return;lock(true);button.setAttribute('aria-busy','true');message(d,'正在处理…');try{await fn()}catch(e){message(d,e.message,true)}finally{button.removeAttribute('aria-busy');lock(false)}}
+    buttons.forEach(b=>b.onclick=()=>action(b,async()=>{
+      if(context.beforeApply&&!await context.beforeApply())throw Error('请先解决简历保存冲突。');
+      const r=await api('/api/ai/run',{task:b.dataset.generate,modelId:d.querySelector('[name=modelId]').value,target,materialIds:[],instruction:d.querySelector('#rewrite-instruction').value});
+      if(!d.isConnected)return;if(r.status!=='ready')throw Error(r.error||'未生成建议，请稍后重试。');
+      result=r;d.querySelector('#rewrite-result').value=r.result.text;message(d,'请核对事实、数字和职责范围，也可以直接修改右侧文字。确认后只替换这一段。');
+    }));
+    apply.onclick=()=>action(apply,async()=>{
+      if(context.beforeApply&&!await context.beforeApply())throw Error('请先解决简历保存冲突。');
+      const text=d.querySelector('#rewrite-result').value;
+      await api('/api/ai/apply',{id:result.id,text,verified:true});
+      accepted={id:result.id,original};original=text;result=null;
+      d.querySelector('.ai-original').textContent=text;undo.hidden=false;
+      await context.onApplied();message(d,'已替换并保存；左侧已更新，可以继续精简或润色。');
+    });
+    undo.onclick=()=>action(undo,async()=>{
+      if(!accepted)return;if(context.beforeApply&&!await context.beforeApply())throw Error('请先解决简历保存冲突。');
+      await api('/api/ai/undo',{id:accepted.id});original=accepted.original;accepted=null;result=null;
+      d.querySelector('.ai-original').textContent=original;d.querySelector('#rewrite-result').value='';undo.hidden=true;
+      await context.onApplied();message(d,'已恢复替换前的内容，可以继续修改。');
+    });
   }
   async function mountSearch(host,context){
     await refresh();if(!host.isConnected)return;
-    host.innerHTML=`<div class="panel-heading"><h2>先看岗位要求，再找适合的方向</h2><button class="text-button" data-stats>统计已存岗位要求</button></div><div class="form-grid"><label>参考简历<select name="exploreVersion">${opts(context.resumes.versions.filter(v=>!v.archived).map(v=>[v.id,v.name]),'')}</select></label><label>已保存的岗位<select name="analyzeJob">${opts(context.career.jobs.filter(j=>j.description).map(j=>[j.id,j.company+' · '+j.title]),'')}</select></label></div><div class="button-row"><button class="secondary" data-analyze data-ai-required>分析岗位要求</button><button class="secondary" data-recommend data-ai-required>匹配经历素材</button><button class="ai-polish-button" data-explore data-ai-required>从简历探索方向</button><a class="button-link" href="/career#preferences">配置AI模型</a></div><p class="hint">分析使用所选岗位正文；探索使用所选简历的教育与经历，不含联系方式和照片。结果可用于调整搜索词，不会自动搜索或投递。</p>`;await refresh();
+    host.innerHTML=`<div class="panel-heading"><h2>先看岗位要求，再找适合的方向</h2><button class="text-button" data-stats>统计已存岗位要求</button></div><div class="form-grid"><label>参考简历<select name="exploreVersion">${opts(context.resumes.versions.filter(v=>!v.archived).map(v=>[v.id,v.name]),'')}</select></label><label>已保存的岗位<select name="analyzeJob">${opts(context.career.jobs.filter(j=>j.description).map(j=>[j.id,j.company+' · '+j.title]),'')}</select></label></div><div class="button-row"><button class="secondary" data-analyze data-ai-required>分析岗位要求</button><button class="secondary" data-recommend data-ai-required>匹配经历素材</button><button class="ai-polish-button" data-explore>从简历探索方向</button><a class="button-link" href="/career#preferences" data-configure-model>配置AI模型</a></div><p class="hint">分析使用所选岗位正文；探索使用所选简历的教育与经历，不含联系方式和照片。结果可用于调整搜索词，不会自动搜索或投递。</p>`;await refresh();
+    host.querySelector('[data-configure-model]').onclick=e=>{e.preventDefault();context.configureModel()};
     const result=async(task,button)=>{
       const payload=task==='extract'?{jobId:host.querySelector('[name=analyzeJob]').value}:{versionId:host.querySelector('[name=exploreVersion]').value};
-      const d=modal(task==='extract'?'岗位要求分析':'适合尝试的方向','<div class="ai-analysis-result" aria-busy="true">正在分析…</div>',true);
-      button.disabled=true;button.setAttribute('aria-busy','true');
+      const d=modal(task==='extract'?'岗位要求分析':'适合尝试的方向','<div class="ai-analysis-result" aria-busy="true">正在读取…</div>',true);
+      const output=d.querySelector('.ai-analysis-result');
+      const actions=document.createElement('div');actions.className='button-row exploration-actions';d.querySelector('.ai-dialog-body').append(actions);
+      const restart=document.createElement('button');restart.type='button';restart.className='ai-restart-button';restart.textContent='重新开始探索';restart.dataset.exploreRestart='';
+      if(task==='explore')actions.append(restart);
+      const show=(r,note)=>{output.innerHTML=AnalysisResults.render(r.result,task);output.removeAttribute('aria-busy');
+        const copy=document.createElement('button');copy.type='button';copy.className='secondary';copy.textContent='复制分析结果';copy.onclick=()=>busy(d,copy,async()=>{await navigator.clipboard.writeText(AnalysisResults.plainText(r.result));message(d,'已复制。')});output.append(copy);
+        output.querySelectorAll('[data-search-keyword]').forEach(b=>b.onclick=()=>{context.fillKeyword(b.dataset.searchKeyword);d.close()});message(d,note);
+      };
+      let working=false;
+      const generate=async()=>{
+        if(working)return;working=true;restart.disabled=true;restart.setAttribute('aria-busy','true');
+        try{await refresh();if(!ready())throw Error('请先在偏好与设置中添加并选择AI模型。');message(d,'正在分析，关闭窗口后结果仍会保存在本机…');
+          const r=await api('/api/ai/run',{task,...payload});if(!d.isConnected)return;if(r.status!=='ready')throw Error(r.error||'分析未完成。');
+          show(r,task==='explore'?'已保存本次探索。再次打开会直接展示，不重复调用模型；这些方向不表示岗位正在招聘。':'只整理岗位已写明的条件；画像是对这些要求的概括。');
+        }catch(e){if(!output.querySelector('article,.ai-keyword-groups'))output.textContent='本次分析未完成。';message(d,e.message,true)}
+        finally{output.removeAttribute('aria-busy');working=false;restart.disabled=false;restart.removeAttribute('aria-busy')}
+      };
+      restart.onclick=generate;button.disabled=true;
       try{
-        const r=await api('/api/ai/run',{task,...payload});if(!d.isConnected)return;
-        if(r.status!=='ready')throw Error(r.error||'分析未完成，请稍后重试。');
-        const output=d.querySelector('.ai-analysis-result');output.innerHTML=AnalysisResults.render(r.result,task);output.removeAttribute('aria-busy');
-        const copy=document.createElement('button');copy.type='button';copy.className='secondary';copy.textContent='复制分析结果';
-        copy.onclick=()=>busy(d,copy,async()=>{await navigator.clipboard.writeText(AnalysisResults.plainText(r.result));message(d,'已复制，可继续整理或用于准备简历。')});output.append(copy);
-        output.querySelectorAll('[data-search-keyword]').forEach(b=>b.onclick=()=>{context.fillKeyword(b.dataset.searchKeyword);d.close()});
-        message(d,task==='explore'?'这是基于简历的方向建议，不表示这些岗位正在招聘。':'只整理岗位已写明的条件；画像是对这些要求的概括。');
-      }catch(e){if(d.isConnected){const output=d.querySelector('.ai-analysis-result');output.textContent='本次分析未完成。';output.removeAttribute('aria-busy')}message(d,e.message,true)}
-      finally{button.removeAttribute('aria-busy');if(button.isConnected)button.disabled=!ready()}
+        if(task==='explore'){
+          const saved=await api('/api/ai/exploration?versionId='+encodeURIComponent(payload.versionId));if(!d.isConnected)return;
+          if(saved.draft)show(saved.draft,`最近一次探索 · ${new Date(saved.draft.createdAt).toLocaleString()}${saved.draft.imported?' · 从备份恢复':''}。${saved.stale?'简历内容已变化，以下为旧结果；需要更新时点击“重新开始探索”。':'已读取本机记录，未调用模型。'}`);
+          else await generate();
+        }else await generate();
+      }catch(e){output.textContent='记录暂时无法读取，未发起新的分析。';output.removeAttribute('aria-busy');message(d,e.message,true)}
+      finally{if(button.isConnected)button.disabled=task==='extract'&&!ready()}
     };
     host.querySelector('[data-recommend]').onclick=()=>recommend(host.querySelector('[name=analyzeJob]').value);host.querySelector('[data-analyze]').onclick=e=>result('extract',e.target);host.querySelector('[data-explore]').onclick=e=>result('explore',e.target);host.querySelector('[data-stats]').onclick=()=>statistics(context);
   }
@@ -68,8 +104,8 @@
     d.querySelector('form').onsubmit=e=>{e.preventDefault();busy(d,e.submitter||e.target.querySelector('button'),async()=>{const r=await api('/api/ai/run',{task:'recommend',jobId,materialIds:new FormData(e.target).getAll('materialIds')});if(!d.isConnected)return;if(r.status!=='ready')throw Error(r.error);d.querySelector('.ai-analysis-result').innerHTML=r.result.items.map(x=>`<article><p>${esc(x.text)}</p><blockquote>${esc(x.quote)}</blockquote></article>`).join('');message(d,'原句来自你选中的素材；可复制到简历中继续调整。')})};
   }
   function statistics(context){
-    const d=modal('所选岗位的共同要求',`<form id="requirements-form"><div class="material-picks">${context.career.jobs.map(j=>`<label><input type="checkbox" name="jobIds" value="${esc(j.id)}"><span>${esc(j.company+' · '+j.title)}${j.description?'':'（缺少正文）'}</span></label>`).join('')}</div><label>补充关键词<input name="keywords" placeholder="如：供应链，支付，用户研究"></label><button class="primary">统计所选岗位</button></form><div id="requirements-result"></div>`,true);
-    d.querySelector('form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);busy(d,e.submitter||e.target.querySelector('button[type="submit"],button.primary'),async()=>{const r=await api('/api/career/jd-insights',{jobIds:f.getAll('jobIds'),keywords:f.get('keywords')});if(!d.isConnected)return;d.querySelector('#requirements-result').innerHTML=`<h3>本次 ${r.sampleSize} 份岗位详情</h3><p class="hint">${r.missingJD}份缺正文未计入。${esc(r.generatedAt)} · 仅代表所选样本。</p>`+r.items.map(x=>`<details><summary>${esc(x.term)} · ${x.count}/${r.sampleSize}</summary>${x.evidence.map(e=>`<p>${esc(e.company+' · '+e.title)}：${esc(e.quote)}</p>`).join('')}</details>`).join('');message(d,'统计在本机完成，未调用模型。')})};
+    const d=modal('所选岗位的共同要求',`<form id="requirements-form"><div class="material-picks">${context.career.jobs.map(j=>`<label><input type="checkbox" name="jobIds" value="${esc(j.id)}"><span>${esc(j.company+' · '+j.title)}${j.description?'':'（缺少正文）'}</span></label>`).join('')}</div><button class="primary">统计所选岗位</button></form><div id="requirements-result"></div>`,true);
+    d.querySelector('form').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);busy(d,e.submitter||e.target.querySelector('button[type="submit"],button.primary'),async()=>{const r=await api('/api/career/jd-insights',{jobIds:f.getAll('jobIds')});if(!d.isConnected)return;d.querySelector('#requirements-result').innerHTML=`<h3>本次 ${r.sampleSize} 份岗位详情</h3><p class="hint">${r.missingJD}份缺正文未计入。${esc(r.generatedAt)} · 同一关键词在一份岗位中最多计一次，仅代表所选样本。</p><div class="requirements-bars">${r.items.length?r.items.map(x=>`<div class="requirement-bar"><span>${esc(x.term)}</span><div class="requirement-track"><i style="width:${Math.round(x.count/Math.max(1,...r.items.map(i=>i.count))*100)}%"></i></div><strong>${x.count}</strong></div>`).join(''):'<p class="hint">所选正文中未找到预设关键词，可以增加岗位样本后再统计。</p>'}</div>`;message(d,'统计在本机完成，未调用模型。')})};
   }
   window.WorkbenchAI={api,esc,modal,confirm,refresh,ready,mountSettings,mountSearch,polish};refresh().catch(()=>{});
 })();

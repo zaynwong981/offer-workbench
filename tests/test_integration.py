@@ -80,6 +80,15 @@ class HTTPIntegrationTests(unittest.TestCase):
         self.assertEqual(status, 200, result)
         return result
 
+    def test_exploration_read_is_local_and_missing_version_is_actionable(self):
+        status, result = self.request('GET', '/api/ai/exploration?versionId=saas')
+        self.assertEqual(status, 200)
+        self.assertEqual(result, {'draft': None, 'stale': False})
+        status, result = self.request('GET', '/api/ai/exploration?versionId=missing')
+        self.assertEqual(status, 400)
+        self.assertIn('简历版本', result['error'])
+        self.assertEqual(self.http.boss.calls, [])
+
     def test_release_metadata_and_guide_keep_legacy_routes(self):
         status, info = self.request("GET", "/api/about")
         self.assertEqual(status, 200)

@@ -25,6 +25,72 @@ class AssistantTests(unittest.TestCase):
     def generate(self,d,result):
         with patch.object(llm,'call',return_value=(json.dumps(result,ensure_ascii=False),{'input_tokens':20,'output_tokens':20})) as call:
             value=assistant.generate(self.store,{'id':d['id'],'confirmed':True});self.assertEqual(call.call_count,1);return value
+    def test_user_guide_contains_current_prompt_rules(self):
+        from app.backend.analysis_results import EXTRACT_SCHEMA, EXPLORE_SCHEMA
+        guide=(Path(__file__).resolve().parents[1]/'docs/USER_GUIDE.md').read_text(encoding='utf-8')
+        for prompt in [assistant.SYSTEM, *assistant.TASKS.values(), EXTRACT_SCHEMA, EXPLORE_SCHEMA]:
+            self.assertIn(prompt,guide)
+
+    def test_extract_empty_categories_and_large_valid_group(self):
+        from app.backend.analysis_results import validate
+        source='负责需求分析和产品验收。'
+        result={'groups':[{'category':'专业','tags':[]},{'category':'能力','tags':[{'label':'关键词'+str(i),'quote':source} for i in range(29)]}], 'profile':{'text':'产品经验','quotes':[source]}}
+        clean=validate(result,'extract',source)
+        self.assertEqual(len(clean['groups']),1)
+        self.assertEqual(len(clean['groups'][0]['tags']),29)
+        for invalid in (None, {}, '关键词'):
+            bad=copy.deepcopy(result);bad['groups'][0]['tags']=invalid
+            with self.assertRaises(ValueError):validate(bad,'extract',source)
+        bad=copy.deepcopy(result);bad['groups'][1]['tags']=[]
+        with self.assertRaises(ValueError):validate(bad,'extract',source)
+        bad=copy.deepcopy(result);bad['groups'][1]['tags'][0]['quote']='伪造依据'
+        with self.assertRaises(ValueError):validate(bad,'extract',source)
+        bad=copy.deepcopy(result);bad['groups'].append({'category':'职责','tags':[{'label':'职责'+str(i),'quote':source} for i in range(100)]})
+        with self.assertRaises(ValueError):validate(bad,'extract',source)
+
+    def test_exploration_persistent_scope_staleness_failure_and_restore(self):
+        quote=self.state['versions'][0]['summary'][0]['text']
+        result={'directions':[{'industry':'企业服务','role':'产品经理','keywords':['SaaS产品经理'],'reason':'可探索','quote':quote}]}
+        with patch.object(llm,'call',return_value=(json.dumps(result),{})) as remote:
+            d=assistant.run(self.store,{'task':'explore','versionId':'saas'},self.state)
+            self.assertEqual(d['status'],'ready')
+            cached=assistant.latest_exploration(CareerStore(self.root/'data'),'saas',self.state)
+            self.assertEqual(cached['draft']['id'],d['id']);self.assertFalse(cached['stale'])
+            second=copy.deepcopy(self.state['versions'][0]);second['id']='another';self.state['versions'].append(second)
+            self.assertIsNone(assistant.latest_exploration(self.store,'another',self.state)['draft'])
+            self.state['versions'][0]['summary'][0]['text']='已调整原文'
+            self.assertTrue(assistant.latest_exploration(self.store,'saas',self.state)['stale'])
+            self.assertEqual(remote.call_count,1)
+        with patch.object(llm,'call',side_effect=ValueError('合成失败')):
+            failed=assistant.run(self.store,{'task':'explore','versionId':'saas'},self.state)
+        self.assertEqual(failed['status'],'failed')
+        self.assertEqual(assistant.latest_exploration(self.store,'saas',self.state)['draft']['id'],d['id'])
+        backup=self.call('backup');self.call('import',backup=backup)
+        self.assertTrue(assistant.latest_exploration(self.store,'saas',self.state)['draft']['imported'])
+        with self.assertRaises(ValueError):assistant.latest_exploration(self.store,'deleted',self.state)
+
+    def test_latest_exploration_order_survives_restore(self):
+        result={'directions':[{'industry':'企业服务','role':'产品经理','keywords':['产品经理'],'reason':'可探索','quote':self.state['versions'][0]['summary'][0]['text']}]}
+        with patch.object(llm,'call',return_value=(json.dumps(result),{})):
+            first=assistant.run(self.store,{'task':'explore','versionId':'saas'},self.state)
+            latest=assistant.run(self.store,{'task':'explore','versionId':'saas'},self.state)
+        self.assertNotEqual(first['id'],latest['id'])
+        self.assertEqual(assistant.latest_exploration(self.store,'saas',self.state)['draft']['id'],latest['id'])
+        backup=self.call('backup');self.call('import',backup=backup)
+        self.assertEqual(assistant.latest_exploration(self.store,'saas',self.state)['draft']['id'],latest['id'])
+
+    def test_continuous_rewrite_and_undo_preserve_conflict_checks(self):
+        first=self.generate(self.preview(),{'text':'整理3份验收记录。','evidence':[]})
+        d,value=assistant.apply(self.store,{'id':first['id'],'verified':True},self.state);assistant.finish_apply(self.store,d,value)
+        second=self.generate(self.preview(),{'text':'完成3份验收记录整理。','evidence':[]})
+        self.assertEqual(second['input']['original']['text'],value)
+        d,value=assistant.apply(self.store,{'id':second['id'],'verified':True},self.state);assistant.finish_apply(self.store,d,value)
+        with self.assertRaises(ValueError):assistant.apply(self.store,{'id':first['id']},self.state,undo=True)
+        d,value=assistant.apply(self.store,{'id':second['id']},self.state,undo=True);assistant.finish_apply(self.store,d,value,undo=True)
+        self.assertEqual(value,'整理3份验收记录。')
+        self.state['versions'][0]['summary'][0]['text']='本人随后修改'
+        with self.assertRaises(ValueError):assistant.apply(self.store,{'id':first['id']},self.state,undo=True)
+
     def test_multiple_models_revision_delete_and_legacy_migration(self):
         first=self.config.public();ident=first['activeId']
         second=self.config.save({**llm.DEFAULT,'new':True,'enabled':True,'model':'second','apiKey':'second-secret','configRevision':first['revision']})
