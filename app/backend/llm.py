@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 import threading
+import uuid
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -14,7 +15,7 @@ PRESETS = {
     'deepseek': {'label': 'DeepSeek', 'baseUrl': 'https://api.deepseek.com', 'protocol': 'chat'},
     'custom': {'label': '自定义兼容接口', 'baseUrl': '', 'protocol': 'chat'},
 }
-DEFAULT = dict(enabled=False, provider='openai', **{k:v for k,v in PRESETS['openai'].items() if k!='label'}, model='', maxOutputTokens=1500, dailyRequests=20, dailyTokens=100000, allowLocal=False, apiVersion='2023-06-01')
+DEFAULT = dict(enabled=False, provider='openai', **{k:v for k,v in PRESETS['openai'].items() if k!='label'}, model='', maxOutputTokens=8192, allowLocal=False, apiVersion='2023-06-01')
 CONFIG_LOCK = threading.RLock()
 
 
@@ -24,7 +25,7 @@ def validate(raw):
     if result['provider'] not in PRESETS or result['protocol'] not in ('responses','messages','chat'): raise ValueError('请选择支持的接口协议。')
     for k in ('enabled','allowLocal'):
         if not isinstance(result[k],bool): raise ValueError('AI 开关格式不正确。')
-    for k,lo,hi in [('maxOutputTokens',128,8000),('dailyRequests',1,200),('dailyTokens',1000,1000000)]:
+    for k,lo,hi in [('maxOutputTokens',128,32768)]:
         v=result[k]
         if isinstance(v,bool) or not isinstance(v,int) or not lo<=v<=hi: raise ValueError(f'{k}超出允许范围（{lo}–{hi}）。')
     for k in ('baseUrl','model','apiVersion'):
@@ -42,42 +43,102 @@ def validate(raw):
     return result
 
 
+MODEL_OPTIONS = {'openai':['gpt-6.2-sol','gpt-6.2-astra','gpt-6-luna'], 'deepseek':['deepseek-flash','deepseek-v4-pro'], 'anthropic':[], 'custom':[]}
+ENV_NAMES = {'openai':'OPENAI_API_KEY','deepseek':'DEEPSEEK_API_KEY','anthropic':'ANTHROPIC_API_KEY'}
+
 class Config:
-    def __init__(self, data_dir): self.path=Path(data_dir)/'.secrets'/'llm.json'
-    def read(self):
-        if self.path.is_symlink() or self.path.parent.is_symlink(): raise ValueError('AI 配置路径不能使用符号链接。')
-        if not self.path.exists(): return {**DEFAULT,'apiKey':''}
+    def __init__(self,data_dir):self.path=Path(data_dir)/'.secrets'/'llm.json'
+    def registry(self):
+        if self.path.is_symlink() or self.path.parent.is_symlink():raise ValueError('模型配置路径不能使用符号链接。')
+        if not self.path.exists():return {'schemaVersion':2,'revision':0,'activeId':'','models':[]}
         raw=json.loads(self.path.read_text(encoding='utf-8'))
-        return {**validate(raw),'apiKey':raw.get('apiKey','')}
+        if raw.get('schemaVersion')==2:return raw
+        # Legacy files are interpreted in memory; no secret is copied to a public backup.
+        return {'schemaVersion':2,'revision':0,'activeId':'legacy','models':[{'id':'legacy',**validate(raw),'apiKey':raw.get('apiKey',''),'useEnvironment':False}]}
+    def environment(self,provider):
+        name=ENV_NAMES.get(provider)
+        if not name:return ''
+        value=os.environ.get(name,'')
+        env=self.path.parent/'provider.env'
+        if env.is_symlink():raise ValueError('环境文件不能使用符号链接。')
+        if env.exists():
+            for line in env.read_text(encoding='utf-8').splitlines():
+                key,sep,val=line.partition('=')
+                if sep and key.strip()==name:value=val.strip().strip('\"\'')
+        return value
+    def resolve(self,c):
+        value={**c}
+        if c.get('useEnvironment'):
+            if c['provider'] not in ENV_NAMES or c['baseUrl']!=PRESETS[c['provider']]['baseUrl']:raise ValueError('环境密钥仅可用于对应服务商的官方地址。')
+            value['apiKey']=self.environment(c['provider'])
+        return value
+    def read(self,model_id=None):
+        with CONFIG_LOCK:
+            reg=self.registry();ident=model_id or reg['activeId'];c=next((m for m in reg['models'] if m['id']==ident),None)
+            if model_id and not c:raise ValueError('模型已删除，请重新选择。')
+            return self.resolve(c) if c else {**DEFAULT,'apiKey':'','id':''}
     def public(self):
         with CONFIG_LOCK:
-            c=self.read();return {**{k:v for k,v in c.items() if k!='apiKey'},'hasKey':bool(c['apiKey']),'presets':PRESETS}
-    def save(self, raw):
+            r=self.registry();models=[]
+            for m in r['models']:
+                value=self.resolve(m);models.append({**{k:v for k,v in m.items() if k!='apiKey'},'hasKey':bool(value['apiKey'])})
+            active=next((m for m in models if m['id']==r['activeId']),{**DEFAULT,'id':'','hasKey':False})
+            return {**active,'models':models,'activeId':r['activeId'],'revision':r['revision'],'presets':PRESETS,'modelOptions':MODEL_OPTIONS,'environmentAvailable':{k:bool(self.environment(k)) for k in ENV_NAMES}}
+    def write(self,r):
+        self.path.parent.mkdir(parents=True,exist_ok=True)
+        if os.name!='nt':self.path.parent.chmod(0o700)
+        fd,temp=tempfile.mkstemp(dir=self.path.parent)
+        try:
+            with os.fdopen(fd,'w',encoding='utf-8') as f:json.dump(r,f,ensure_ascii=False);f.flush();os.fsync(f.fileno())
+            os.replace(temp,self.path)
+        finally:
+            if os.path.exists(temp):os.unlink(temp)
+    def candidate(self,raw):
+        c=validate(raw);r=self.registry();ident=raw.get('id') or ('' if raw.get('new') else r['activeId']);old=next((m for m in r['models'] if m['id']==ident),{})
+        if ident and not old:raise ValueError('模型已删除，请刷新后再编辑。')
+        key=raw.get('apiKey','')
+        if not isinstance(key,str) or len(key)>2000 or any(ord(x)<32 for x in key):raise ValueError('密钥格式不正确。')
+        changed=(c['provider'],c['baseUrl'])!=(old.get('provider'),old.get('baseUrl'))
+        c.update(id=ident or uuid.uuid4().hex,apiKey='' if raw.get('clearKey') else key.strip() or ('' if changed else old.get('apiKey','')),useEnvironment=raw.get('useEnvironment',old.get('useEnvironment',False)))
+        if not isinstance(c['useEnvironment'],bool):raise ValueError('环境变量选项无效。')
+        self.resolve(c)
+        return c
+    def save(self,raw):
         with CONFIG_LOCK:
-            c=validate(raw);old=self.read()
-            key=raw.get('apiKey','')
-            if not isinstance(key,str) or len(key)>2000 or any(ord(x)<32 for x in key): raise ValueError('密钥格式不正确。')
-            changed=(c['provider'],c['baseUrl'])!=(old['provider'],old['baseUrl'])
-            c['apiKey']='' if raw.get('clearKey') is True else key.strip() or ('' if changed else old['apiKey'])
-            self.path.parent.mkdir(parents=True,exist_ok=True)
-            if os.name!='nt': self.path.parent.chmod(0o700)
-            fd,temp=tempfile.mkstemp(dir=self.path.parent)
-            try:
-                with os.fdopen(fd,'w',encoding='utf-8') as f: json.dump(c,f,ensure_ascii=False);f.flush();os.fsync(f.fileno())
-                os.replace(temp,self.path)
-            finally:
-                if os.path.exists(temp): os.unlink(temp)
-            return self.public()
+            r=self.registry()
+            if 'configRevision' in raw and raw['configRevision']!=r['revision']:raise ValueError('模型列表已更新，请重新打开设置。')
+            c=self.candidate(raw);found=any(m['id']==c['id'] for m in r['models'])
+            if not found and len(r['models'])>=20:raise ValueError('最多保存20个模型，请先整理。')
+            r['models']=[c if m['id']==c['id'] else m for m in r['models']]+([] if found else [c])
+            if not r['activeId'] or raw.get('makeActive',True):r['activeId']=c['id']
+            r['revision']+=1;self.write(r);return self.public()
+    def change(self,raw,delete=False):
+        with CONFIG_LOCK:
+            r=self.registry();ident=raw.get('id')
+            if raw.get('configRevision')!=r['revision']:raise ValueError('模型列表已更新，请刷新。')
+            if not any(m['id']==ident for m in r['models']):raise ValueError('模型已删除。')
+            if delete:
+                r['models']=[m for m in r['models'] if m['id']!=ident]
+                if r['activeId']==ident:r['activeId']=''
+            else:r['activeId']=ident
+            r['revision']+=1;self.write(r);return self.public()
+    def test(self,raw):
+        with CONFIG_LOCK:c=self.resolve(self.candidate(raw)) if raw.get('settings') else self.read(raw.get('id'))
+        c['enabled']=True
+        content,usage=call(c,request_body(c,'This is a connection test.','Reply with OK only.',True))
+        return {'ok':True,'message':'连接成功，模型已返回测试回复。','model':c['model'],'usage':usage}
 
 
 def request_body(c, system, prompt, test=False):
-    limit=128 if test else c['maxOutputTokens']
+    limit=1024 if test else c['maxOutputTokens']
     common={'model':c['model']}
     if c['protocol']=='responses':
         return {**common,'instructions':system,'input':prompt,'max_output_tokens':limit,'store':False}
     if c['protocol']=='messages':
         return {**common,'system':system,'messages':[{'role':'user','content':prompt}],'max_tokens':limit}
-    return {**common,'messages':[{'role':'system','content':system},{'role':'user','content':prompt}],'max_tokens':limit,'stream':False}
+    body={**common,'messages':[{'role':'system','content':system},{'role':'user','content':prompt}],'max_tokens':limit,'stream':False}
+    if c.get('provider')=='deepseek':body['thinking']={'type':'disabled'}
+    return body
 
 
 def endpoint(c): return c['baseUrl']+{'responses':'/responses','messages':'/messages','chat':'/chat/completions'}[c['protocol']]

@@ -25,6 +25,64 @@ class AssistantTests(unittest.TestCase):
     def generate(self,d,result):
         with patch.object(llm,'call',return_value=(json.dumps(result,ensure_ascii=False),{'input_tokens':20,'output_tokens':20})) as call:
             value=assistant.generate(self.store,{'id':d['id'],'confirmed':True});self.assertEqual(call.call_count,1);return value
+    def test_multiple_models_revision_delete_and_legacy_migration(self):
+        first=self.config.public();ident=first['activeId']
+        second=self.config.save({**llm.DEFAULT,'new':True,'enabled':True,'model':'second','apiKey':'second-secret','configRevision':first['revision']})
+        self.assertEqual(len(second['models']),2)
+        with self.assertRaises(ValueError):self.config.change({'id':ident,'configRevision':first['revision']})
+        current=self.config.change({'id':ident,'configRevision':second['revision']})
+        self.assertEqual(current['activeId'],ident)
+        current=self.config.change({'id':ident,'configRevision':current['revision']},delete=True)
+        self.assertEqual(current['activeId'],'');self.assertFalse(current['enabled'])
+        with self.assertRaises(ValueError):self.config.read(ident)
+        legacy={**llm.DEFAULT,'enabled':True,'model':'legacy-model','apiKey':'legacy-secret'}
+        self.config.path.write_text(json.dumps(legacy));before=self.config.path.read_bytes()
+        current=self.config.public();self.assertEqual(current['activeId'],'legacy');self.assertEqual(self.config.path.read_bytes(),before)
+        self.config.save({**current,'apiKey':'','model':'renamed'})
+        self.assertEqual(self.config.registry()['schemaVersion'],2);self.assertEqual(self.config.read()['apiKey'],'legacy-secret')
+
+    def test_tool_environment_only_official_address_and_unsaved_test(self):
+        env=self.config.path.parent/'provider.env';env.write_text('DEEPSEEK_API_KEY=synthetic-env-key\n')
+        candidate={**llm.DEFAULT,**llm.PRESETS['deepseek'],'provider':'deepseek','model':'deepseek-flash','enabled':True,'new':True,'useEnvironment':True,'settings':True}
+        before=self.config.path.read_bytes()
+        with patch.object(llm,'call',return_value=('OK',{})) as remote:
+            self.assertTrue(self.config.test(candidate)['ok'])
+            self.assertEqual(remote.call_args.args[0]['apiKey'],'synthetic-env-key')
+            self.assertNotIn('private-contact',json.dumps(remote.call_args.args[1]))
+        self.assertEqual(self.config.path.read_bytes(),before)
+        with self.assertRaises(ValueError):self.config.candidate({**candidate,'baseUrl':'https://example.com'})
+        self.assertNotIn('synthetic-env-key',json.dumps(self.config.public()))
+
+    def test_direct_run_advice_and_education_scope(self):
+        self.state['education']=[{'heading':'示例学校','bullets':[{'label':'课程','text':'金融科技与风险控制'}]}]
+        target={'versionId':'saas','path':['education',0,'bullets',0]}
+        with patch.object(llm,'call',return_value=(json.dumps({'text':'建议保留2项相关课程','evidence':[]}),{})):
+            advice=assistant.run(self.store,{'task':'advice','target':target},self.state)
+        self.assertEqual(advice['status'],'ready')
+        with self.assertRaises(ValueError):assistant.apply(self.store,{'id':advice['id'],'verified':True},self.state)
+        with patch.object(llm,'call',return_value=(json.dumps({'text':'学习金融科技与风险控制','evidence':[]}),{})):
+            d=assistant.run(self.store,{'task':'rewrite','target':target},self.state)
+        self.assertEqual(d['status'],'ready')
+        assistant.apply(self.store,{'id':d['id'],'verified':True},self.state)
+        self.assertEqual(self.state['education'][0]['bullets'][0]['text'],'学习金融科技与风险控制')
+
+    def test_explore_excludes_profile_and_checks_quotes(self):
+        quote=self.state['versions'][0]['summary'][0]['text']
+        with patch.object(llm,'call',return_value=(json.dumps({'items':[{'text':'可探索企业服务产品','quote':quote,'materialId':''}]}),{})) as remote:
+            d=assistant.run(self.store,{'task':'explore','versionId':'saas'},self.state)
+            request=json.dumps(remote.call_args.args[1]);self.assertNotIn('private-contact',request);self.assertNotIn('photo',request)
+        self.assertEqual(d['status'],'ready')
+        with patch.object(llm,'call',return_value=(json.dumps({'items':[{'text':'推荐','quote':'不存在的经历','materialId':''}]}),{})):
+            d=assistant.run(self.store,{'task':'explore','versionId':'saas'},self.state)
+        self.assertEqual(d['status'],'failed')
+
+    def test_deleted_selected_model_cannot_silently_switch(self):
+        d=self.preview();cfg=self.config.public()
+        self.config.change({'id':cfg['activeId'],'configRevision':cfg['revision']},delete=True)
+        with patch.object(llm,'call') as remote:
+            with self.assertRaises(ValueError):assistant.generate(self.store,{'id':d['id'],'confirmed':True})
+            remote.assert_not_called()
+
     def test_material_revision_conflict_and_required_source(self):
         m=self.material();changed={**m,'body':'新内容'};self.call('material-save',material=changed)
         with self.assertRaises(ValueError):self.call('material-save',material=changed)
@@ -66,13 +124,13 @@ class AssistantTests(unittest.TestCase):
         with self.assertRaises(ValueError):assistant.generate(self.store,{'id':d['id'],'confirmed':True})
         self.assertNotIn('apiKey',self.config.public())
         if os.name!='nt':self.assertEqual(self.config.path.stat().st_mode&0o777,0o600)
-    def test_budget_rejection_and_fixed_test_has_no_materials(self):
+    def test_no_local_daily_quota_and_fixed_test_has_no_materials(self):
         self.config.save({**self.config.public(),'dailyRequests':1})
         d=self.preview(task='test',materialIds=['missing']);self.assertEqual(d['input'],{});self.assertNotIn('private-contact',json.dumps(d))
         with patch.object(llm,'call',return_value=('OK',{})):self.assertEqual(assistant.generate(self.store,{'id':d['id'],'confirmed':True})['status'],'ready')
-        with patch.object(llm,'call') as remote:
-            with self.assertRaises(ValueError):assistant.generate(self.store,{'id':self.preview()['id'],'confirmed':True})
-            remote.assert_not_called()
+        with patch.object(llm,'call',return_value=('OK',{})) as remote:
+            assistant.generate(self.store,{'id':self.preview(task='test')['id'],'confirmed':True})
+            self.assertEqual(remote.call_count,1)
     def test_backup_v4_legacy_and_corruption_atomic_no_secrets(self):
         self.material();d=self.preview();backup=self.call('backup');self.assertEqual(backup['schemaVersion'],4)
         self.assertNotIn('synthetic-secret',json.dumps(backup));self.call('import',backup=backup)

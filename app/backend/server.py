@@ -405,10 +405,19 @@ class Handler(BaseHTTPRequestHandler):
         static["/job-workflow.css"] = ("app/frontend/css/job-workflow.css", "text/css; charset=utf-8")
         static["/workspace-layout.js"] = ("app/frontend/js/workspace-layout.js", "text/javascript; charset=utf-8")
         static["/site-info.js"] = ("app/frontend/js/site-info.js", "text/javascript; charset=utf-8")
-        for name,folder,mime in [("assistant-ui.js","js","text/javascript"),("assistant.css","css","text/css"),("brand.css","css","text/css")]:
+        for name,folder,mime in [("assistant-ui.js","js","text/javascript"),("inline-ai.js","js","text/javascript"),("assistant.css","css","text/css"),("brand.css","css","text/css")]:
             static["/"+name] = ("app/frontend/"+folder+"/"+name,mime+"; charset=utf-8")
-        for name,mime in [("wordmark.svg","image/svg+xml"),("mark-blue.svg","image/svg+xml"),("favicon.ico","image/x-icon")]:
-            static["/brand/"+name] = ("docs/brand/logo/"+name,mime)
+        if route.startswith('/brand/'):
+            names={'wordmark.svg':'image/svg+xml','mark-blue.svg':'image/svg+xml','favicon.ico':'image/x-icon'}
+            name=route.rsplit('/',1)[-1]
+            if name in names:
+                settings=ROOT/'brand.local.json'
+                directory=Path(json.loads(settings.read_text(encoding='utf-8'))['directory']) if settings.exists() else None
+                if directory and (directory/'logo'/name).is_file():return self.send((directory/'logo'/name).read_bytes(),names[name])
+                fallback='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 412 72"><text x="8" y="48" fill="#245bcc" font-size="36" font-family="sans-serif">简历工作台</text></svg>'
+                if name!='wordmark.svg':fallback='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect x="10" y="6" width="28" height="36" rx="3" fill="none" stroke="#245bcc" stroke-width="3"/><path d="M17 17h14M17 24h14M17 31h10" stroke="#245bcc" stroke-width="3"/></svg>'
+                return self.send(fallback.encode(),'image/svg+xml')
+
         static["/guide"] = ("app/frontend/guide.html", "text/html; charset=utf-8")
         static["/docs/USER_GUIDE.md"] = ("docs/USER_GUIDE.md", "text/plain; charset=utf-8")
         static["/help"] = ("docs/USER_GUIDE.md", "text/plain; charset=utf-8")
@@ -432,11 +441,17 @@ class Handler(BaseHTTPRequestHandler):
             allowed_routes = {"/api/save", "/api/pdf", "/api/export-pdf", "/api/export-all", "/api/boss/search", "/api/boss/detail"}
             allowed_routes.update("/api/career/" + action for action in ("preferences", "upsert", "update", "delete", "match", "import", "tailor", "export", "event-save", "event-delete", "event-check", "view", "decision", "preparation", "plan-save", "plan-delete", "submission-confirm"))
             allowed_routes.update("/api/career/"+a for a in ("material-save","material-delete","draft-delete","jd-insights"))
-            allowed_routes.update("/api/ai/"+a for a in ("config","prepare","generate","apply","undo"))
+            allowed_routes.update("/api/ai/"+a for a in ("config","prepare","generate","apply","undo","run","test","model-delete","model-select"))
             if route not in allowed_routes:
                 return self.send({"error": "接口不存在。"}, status=404)
             if route == "/api/ai/config":
                 return self.send(llm.Config(self.server.career.path.parent).save(payload))
+            if route in ("/api/ai/model-delete","/api/ai/model-select"):
+                return self.send(llm.Config(self.server.career.path.parent).change(payload,route.endswith("delete")))
+            if route == "/api/ai/test":return self.send(llm.Config(self.server.career.path.parent).test(payload))
+            if route == "/api/ai/run":
+                with LOCK:state=json.loads(self.server.state_path.read_text(encoding="utf-8"))
+                return self.send(assistant.run(self.server.career,payload,state))
             if route == "/api/ai/generate":
                 return self.send(assistant.generate(self.server.career,payload))
             if route in ("/api/ai/prepare","/api/ai/apply","/api/ai/undo"):
@@ -550,7 +565,7 @@ def main():
             info = json.load(urllib.request.urlopen(url + "/health", timeout=2))
             if info.get("root") == str(ROOT) and info.get("app") == "career-studio":
                 if args.open:
-                    webbrowser.open(url + "/career")
+                    webbrowser.open(url + "/")
                 print("已运行 " + url, flush=True)
                 return
         except Exception:
@@ -566,7 +581,7 @@ def main():
     server.boss = BossAdapter()
     print("简历工作台 " + url, flush=True)
     if args.open:
-        webbrowser.open(url + "/career")
+        webbrowser.open(url + "/")
     server.serve_forever()
 
 

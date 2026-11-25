@@ -133,5 +133,5 @@
  if($('#search-form')||$('#pipeline-filter'))render();
 })();
 
-/* Explicit handoff; no generation occurs when opening the assistant. */
-if(typeof MutationObserver!=="undefined") new MutationObserver(()=>{const form=document.querySelector('#preparation-form');if(form&&!form.querySelector('[data-assist-link]')&&activeJob){const a=document.createElement('a');a.dataset.assistLink='true';a.className='secondary';a.textContent='用素材与AI准备';a.href='/career?assistJob='+encodeURIComponent(activeJob.id)+'#materials';form.prepend(a);}}).observe(document.querySelector('#job-detail'),{childList:true,subtree:true});
+/* Preparation stays in the resume editor. */
+if(typeof MutationObserver!=="undefined") new MutationObserver(()=>{const form=document.querySelector('#preparation-form');if(form&&!form.querySelector('[data-assist-link]')&&activeJob){const a=document.createElement('a');a.dataset.assistLink='true';a.className='secondary';a.textContent='打开简历润色与素材库';a.href='/?version='+encodeURIComponent(activeJob.resumeId||resumes.versions[0]?.id||'')+'&returnJob='+encodeURIComponent(activeJob.id);form.prepend(a);}}).observe(document.querySelector('#job-detail'),{childList:true,subtree:true});
