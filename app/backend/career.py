@@ -12,7 +12,7 @@ import sqlite3
 from urllib.parse import urlsplit
 import uuid
 from .schedule import validate_event, conflicts
-from . import workflow
+from . import workflow, assistant
 from .preference_options import CATALOG, RECRUITMENT_TYPES
 
 
@@ -280,6 +280,7 @@ class CareerStore:
                   FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE);
             """)
             workflow.setup(db)
+            assistant.setup(db)
 
     @contextmanager
     def _db(self):
@@ -331,6 +332,8 @@ class CareerStore:
             raise ValueError("请求格式不正确。")
         action = route.removeprefix("/api/career/")
         with self._db() as db:
+            if action in ("assist-state", "material-save", "material-delete", "draft-delete", "jd-insights"):
+                return assistant.dispatch(self,db,action,payload,resume_state)
             if action in ("view", "decision", "preparation", "plan-save", "plan-delete", "artifact", "submission-confirm"):
                 return workflow.dispatch(self,db,action,payload,resume_state)
             if action in ("event-save", "event-delete", "event-check"):
@@ -365,11 +368,12 @@ class CareerStore:
                 return self._state(db, resume_state=resume_state)
             if action == "backup":
                 state = self._state(db, full_history=True, resume_state=resume_state)
-                return {"schemaVersion": 3, "kind": "career-studio", "exportedAt": _now(),
-                        "preferences": state["preferences"], "jobs": state["jobs"], "events": state["events"], **workflow.extra_state(db, full=True)}
+                return {"schemaVersion": 4, "kind": "career-studio", "exportedAt": _now(),
+                        "preferences": state["preferences"], "jobs": state["jobs"], "events": state["events"], **workflow.extra_state(db, full=True), **assistant.data(db)}
             if action == "import":
+                db.execute("BEGIN IMMEDIATE")  # Serialize import with AI budget/dispatch intent.
                 backup = payload.get("backup")
-                if not isinstance(backup, dict) or backup.get("schemaVersion") not in (1, 2, 3) or backup.get("kind") != "career-studio":
+                if not isinstance(backup, dict) or backup.get("schemaVersion") not in (1, 2, 3, 4) or backup.get("kind") != "career-studio":
                     raise ValueError("请选择求职工作台导出的备份。")
                 prefs = validate_preferences(backup.get("preferences"))
                 raw_jobs = backup.get("jobs")
@@ -414,6 +418,9 @@ class CareerStore:
                     event_ids.add(event["id"])
                     events.append(event)
                 extras = workflow.validate_extra_backup(backup, seen)
+                ai_values = assistant.validate_backup(backup)
+                if any(d.get("status")=="running" for d in assistant.rows(db,"ai_drafts")):
+                    raise ValueError("AI正在生成，请等结束后再导入备份。")
                 # Validation finishes before any deletion; all replacements commit
                 # together, or the original opportunity collection is retained.
                 db.execute("DELETE FROM submissions")
@@ -428,6 +435,7 @@ class CareerStore:
                 for event in events:
                     db.execute("INSERT INTO events VALUES (?, ?, ?)", (event["id"], event["jobId"] or None, json.dumps(event, ensure_ascii=False)))
                 workflow.restore_extra(db, extras)
+                assistant.restore(db,ai_values)
                 return {"imported": len(imported), **self._state(db, resume_state=resume_state)}
             if action == "preferences":
                 prefs = validate_preferences(payload.get("preferences"))
