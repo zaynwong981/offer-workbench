@@ -35,19 +35,21 @@ def validate(result, task, source):
             if not isinstance(group, dict) or group.get('category') not in CATEGORIES:
                 raise ValueError('关键词分类不正确。')
             bucket = buckets.setdefault(group['category'], [])
-            for item in array(group.get('tags'), '分类关键词', 1, 20):
+            for item in array(group.get('tags'), '分类关键词', 0, 120):
                 if not isinstance(item, dict):
                     raise ValueError('关键词格式不正确。')
                 tag = {'label': required(item.get('label'), '关键词', 80),
                        'quote': quote(item.get('quote'), source)}
                 if not any(t['label'] == tag['label'] for t in bucket):
                     bucket.append(tag)
+        if not any(buckets.values()):
+            raise ValueError('没有提取到有效关键词，请补充岗位职责或任职要求后再分析。')
         if sum(map(len, buckets.values())) > 120:
             raise ValueError('关键词过多，请缩小岗位正文范围。')
         profile = result.get('profile')
         if not isinstance(profile, dict):
             raise ValueError('候选人画像格式不正确。')
-        return {'groups': [{'category': k, 'tags': buckets[k]} for k in CATEGORIES if k in buckets],
+        return {'groups': [{'category': k, 'tags': buckets[k]} for k in CATEGORIES if buckets.get(k)],
                 'profile': {'text': required(profile.get('text'), '候选人画像', 2000),
                             'quotes': [quote(q, source) for q in array(profile.get('quotes'), '画像依据', 1, 8)]}}
     if task == 'explore':

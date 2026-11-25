@@ -81,7 +81,7 @@
   document.body.append(dialog);
   const content = dialog.querySelector('#doc-content'), scroll = dialog.querySelector('.doc-scroll'), toc = dialog.querySelector('#doc-toc-items'), back = dialog.querySelector('#doc-back');
   let request = null, sequence = 0, opener = null, previousOverflow, previousPadding, pageY = 0;
-  async function load(file = 'README.md') {
+  async function load(file = 'README.md', section = '') {
     if (!files[file]) return;
     const current = ++sequence; request?.abort(); request = new AbortController();
     dialog.querySelector('#doc-title').textContent = names[file]; back.hidden = file === 'README.md';
@@ -98,20 +98,22 @@
         toc.append(button);
       });
       scroll.scrollTop = 0;
+      if(section){const heading=[...content.querySelectorAll('h2,h3')].find(h=>h.textContent.includes(section));if(heading)scroll.scrollTop += heading.getBoundingClientRect().top-scroll.getBoundingClientRect().top-24;}
     } catch (error) {
       if (current !== sequence || error.name === 'AbortError') return;
       const message = make('p', error.message, 'doc-message'); message.setAttribute('role', 'alert');
       const retry = make('button', '重新读取文档', 'secondary'); retry.type = 'button'; retry.onclick = () => load(file); content.replaceChildren(message, retry);
     } finally { if (current === sequence) content.removeAttribute('aria-busy'); }
   }
-  function open(button) {
+  function open(button, file = 'README.md', section = '') {
     if (dialog.open) return;
     opener = button; pageY = window.scrollY;
     const root = document.documentElement, gutter = innerWidth - root.clientWidth;
     previousOverflow = root.style.overflow; previousPadding = root.style.paddingRight;
     if (gutter) root.style.paddingRight = parseFloat(getComputedStyle(root).paddingRight) + gutter + 'px';
-    root.style.overflow = 'hidden'; dialog.showModal(); dialog.querySelector('#doc-close').focus(); load();
+    root.style.overflow = 'hidden'; dialog.showModal(); dialog.querySelector('#doc-close').focus(); load(file,section);
   }
+  window.WorkbenchDocs={open};
   dialog.querySelector('#doc-close').onclick = () => dialog.close();
   back.onclick = () => load();
   dialog.addEventListener('close', () => {

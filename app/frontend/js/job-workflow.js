@@ -3,8 +3,8 @@
  const key='offer-workbench-job-workflow-v1';
  let local={};try{local=JSON.parse(sessionStorage.getItem(key)||'{}')||{}}catch{}
  local.views ||= {};local.preparations ||= {};local.submissionDrafts ||= {};
- let currentRules=JobRules.normalize(local.rules||{preferred:career.preferences||{}}), rulesInitialized=!!local.rules;
- let decisionFilter=local.decisionFilter||'all',sortMode=local.sortMode||'relevance',hideConflicts=local.hideConflicts===true;
+ let currentRules=JobRules.normalize({preferred:career.preferences||{}});
+ let decisionFilter=local.decisionFilter||'all',sortMode=local.sortMode||'relevance';
  let operation=0,restoring=false,lastDetailId='';
  const dialog=$('#job-dialog');
  const storedView=t=>(local.views[t] ||= {list:0,detail:0,page:0,selected:'',detailTab:'job'});
@@ -13,7 +13,7 @@
   const v=storedView(tab);if($('#opportunity-list'))v.list=$('#opportunity-list').scrollTop;
   if(dialog.open){v.detail=dialog.scrollTop;v.selected=activeJob?.id||'';v.detailTab=dialog.dataset.detailTab||'job'}
   v.page=window.scrollY;
-  local.rules=currentRules;local.decisionFilter=decisionFilter;local.sortMode=sortMode;local.hideConflicts=hideConflicts;
+  local.decisionFilter=decisionFilter;local.sortMode=sortMode;
   try{sessionStorage.setItem(key,JSON.stringify(local))}catch{error('浏览器暂时存不下这些草稿，请先保存准备内容，再离开页面。')}
  }
  function capturePreparation(){
@@ -33,18 +33,18 @@
  const baseRender=render;
  render=function(){remember();const prior=restoring;restoring=true;try{detach();baseRender();restoreView()}finally{restoring=prior}};
  const originalSearch=renderSearch,originalPipeline=renderPipeline;
- renderSearch=function(){detach();originalSearch();installPlans();mountList(results,true)};
+ renderSearch=function(){detach();originalSearch();mountList(results,true)};
  renderPipeline=function(){detach();originalPipeline();const jobs=career.jobs.filter(j=>(pipelineStatus==='all'||j.status===pipelineStatus)&&`${j.title} ${j.company} ${j.notes||''}`.toLowerCase().includes(pipelineText.toLowerCase()));mountList(jobs,false)};
  const decisionName={open:'继续了解',later:'稍后考虑',skip:'不考虑'};
  function mountList(jobs,isSearch){
   const previousView=structuredClone(storedView(tab));const priorRestore=restoring;restoring=true;
-  if(!rulesInitialized){currentRules=JobRules.normalize({preferred:career.preferences});rulesInitialized=true;}
+  currentRules=JobRules.normalize({preferred:career.preferences});
   const host=isSearch?$('#search-results'):$('#content > section.panel');if(!host){restoring=priorRestore;return;}
   let rows=JobRules.order(jobs.map(j=>savedJob(j)||j),currentRules,sortMode);
-  rows=rows.filter(({job,assessment})=>(!hideConflicts||assessment.conflicts===0)&&(decisionFilter==='all'||decisionFilter==='unseen'&&!job.lastViewedAt||decisionFilter==='seen'&&job.lastViewedAt||job.decision===decisionFilter));
-  host.innerHTML=`<div class="local-filter"><label>浏览与取舍<select id="decision-filter">${[['all','全部岗位'],['unseen','还没看过'],['seen','已看过'],['later','稍后考虑'],['skip','不考虑']].map(([v,n])=>`<option value="${v}" ${v===decisionFilter?'selected':''}>${n}</option>`).join('')}</select></label><label>排序<select id="local-sort"><option value="relevance" ${sortMode==='relevance'?'selected':''}>按本次条件排序</option><option value="original" ${sortMode==='original'?'selected':''}>保留原顺序</option></select></label><label class="check"><input id="hide-conflicts" type="checkbox" ${hideConflicts?'checked':''}>隐藏明确不符合必要条件的岗位</label></div><p class="hint">${rows.length} 个岗位。排序先看必要条件冲突数，再看偏好、探索命中数；同分保留原顺序。缺失信息不直接排除。</p><div class="opportunity-split"><div id="opportunity-list" class="opportunity-list" aria-label="岗位列表" tabindex="0">${rows.length?rows.map(({job:j,assessment:a})=>`<article class="opportunity-row ${activeJob?.id===j.id?'selected':''}"><button class="opportunity-open" data-workflow="open" data-id="${esc(j.id)}" data-index="${jobs.findIndex(x=>x.id===j.id||jobDraftKey(x)===jobDraftKey(j))}" aria-label="查看 ${esc(j.title)}"><strong>${esc(j.title)}</strong><span class="salary">${esc(j.salary||'薪资待核实')}</span><span>${esc(j.company||'公司待补充')} · ${esc(j.city||'地点待补充')}</span><span class="row-status">${j.lastViewedAt?'已看过':'未看过'} · ${decisionName[j.decision]||'继续了解'}${j.status?' · '+esc(statuses[j.status]||j.status):''}</span></button>${j.decisionReason?`<p class="row-reason">${esc(j.decisionReason)}</p>`:''}</article>`).join(''):empty('没有符合当前条件的岗位','可以放宽本次条件，或切回“全部岗位”；已保存的记录仍然保留。')}</div><div id="job-side" class="job-side"><div class="detail-placeholder"><h2>先选一个岗位</h2><p>在这里看职责、准备简历和记录进度。切换岗位后，列表会停在原来的位置。</p></div></div></div>`;
+  rows=rows.filter(({job,assessment})=>(decisionFilter==='all'||decisionFilter==='unseen'&&!job.lastViewedAt||decisionFilter==='seen'&&job.lastViewedAt||job.decision===decisionFilter));
+  host.innerHTML=`<div class="local-filter"><label>浏览与取舍<select id="decision-filter">${[['all','全部岗位'],['unseen','还没看过'],['seen','已看过'],['later','稍后考虑'],['skip','不考虑']].map(([v,n])=>`<option value="${v}" ${v===decisionFilter?'selected':''}>${n}</option>`).join('')}</select></label><label>排序<select id="local-sort"><option value="relevance" ${sortMode==='relevance'?'selected':''}>按已保存偏好排序</option><option value="original" ${sortMode==='original'?'selected':''}>保留原顺序</option></select></label></div><p class="hint">${rows.length} 个岗位。按已保存偏好的命中情况排序；同分保留原顺序。缺失信息不直接排除。</p><div class="opportunity-split"><div id="opportunity-list" class="opportunity-list" aria-label="岗位列表" tabindex="0">${rows.length?rows.map(({job:j,assessment:a})=>`<article class="opportunity-row ${activeJob?.id===j.id?'selected':''}"><button class="opportunity-open" data-workflow="open" data-id="${esc(j.id)}" data-index="${jobs.findIndex(x=>x.id===j.id||jobDraftKey(x)===jobDraftKey(j))}" aria-label="查看 ${esc(j.title)}"><strong>${esc(j.title)}</strong><span class="salary">${esc(j.salary||'薪资待核实')}</span><span>${esc(j.company||'公司待补充')} · ${esc(j.city||'地点待补充')}</span><span class="row-status">${j.lastViewedAt?'已看过':'未看过'} · ${decisionName[j.decision]||'继续了解'}${j.status?' · '+esc(statuses[j.status]||j.status):''}</span></button>${j.decisionReason?`<p class="row-reason">${esc(j.decisionReason)}</p>`:''}</article>`).join(''):empty('没有符合当前条件的岗位','可以调整已保存偏好，或切回“全部岗位”；已保存的记录仍然保留。')}</div><div id="job-side" class="job-side"><div class="detail-placeholder"><h2>先选一个岗位</h2><p>在这里看职责、准备简历和记录进度。切换岗位后，列表会停在原来的位置。</p></div></div></div>`;
   host.dataset.workflowJobs=JSON.stringify(jobs.map(j=>j.id));host._workflowJobs=jobs;
-  for(const id of ['decision-filter','local-sort','hide-conflicts'])$('#'+id).onchange=()=>{remember();decisionFilter=$('#decision-filter').value;sortMode=$('#local-sort').value;hideConflicts=$('#hide-conflicts').checked;(isSearch?renderSearch:renderPipeline)();};
+  for(const id of ['decision-filter','local-sort'])$('#'+id).onchange=()=>{remember();decisionFilter=$('#decision-filter').value;sortMode=$('#local-sort').value;(isSearch?renderSearch:renderPipeline)();};
   const selected=storedView(tab).selected;
   const found=jobs.map(j=>savedJob(j)||j).find(j=>j.id===selected||activeJob&&j.id===activeJob.id);
   if(found){activeJob=found;renderJob();placeDetail(false)}
@@ -67,22 +67,13 @@
    if(id===operation&&activeJob&&jobDraftKey(activeJob)===jobDraftKey(viewed)){captureJobDraft();activeJob=data.job;storedView(tab).selected=data.job.id;renderJob();placeDetail();remember();}
   })().catch(e=>{if(id===operation)error('浏览记录未保存：'+e.message)});
  };
- function fields(group,label,note){const r=currentRules[group];return `<fieldset><legend>${label}</legend><p class="hint">${note}</p><div class="rules-fields">${[['cities','城市'],['roles','岗位方向'],['keywords','业务关键词'],['excludedCompanies','排除公司']].map(([k,n])=>`<label>${n}<input name="${group}_${k}" value="${esc(local.ruleDraft?.[group+'_'+k]??(r[k]||[]).join('，'))}" placeholder="多个选项用逗号分隔"></label>`).join('')}<label>月薪下限（K）<input type="number" min="0" max="1000" step="0.5" name="${group}_salaryMin" value="${esc(local.ruleDraft?.[group+'_salaryMin']??r.salaryMin??0)}"></label><label>月薪上限（K）<input type="number" min="0" max="1000" step="0.5" name="${group}_salaryMax" value="${esc(local.ruleDraft?.[group+'_salaryMax']??r.salaryMax??0)}"></label></div></fieldset>`}
- function readRules(){const f=$('#local-rules');if(!f)return currentRules;const d=new FormData(f),value={};for(const g of ['hard','preferred','explore']){value[g]={};for(const k of ['cities','roles','keywords','excludedCompanies'])value[g][k]=splitItems(d.get(g+'_'+k));for(const k of ['salaryMin','salaryMax'])value[g][k]=Number(d.get(g+'_'+k)||0);if(value[g].salaryMax&&value[g].salaryMin>value[g].salaryMax)throw Error('月薪下限不能高于上限，请核对本次条件。');}return value}
- function installPlans(){
-  if(!rulesInitialized){currentRules=JobRules.normalize({preferred:career.preferences});rulesInitialized=true;}
-  const block=document.createElement('section');block.className='panel filter-plans';block.innerHTML=`<details ${local.rulesOpen?'open':''}><summary>本次筛选与已存方案 <span class="muted">只在本机比较，不会自动搜索</span></summary><div class="plan-row"><label>已存方案<select id="saved-plan"><option value="">选择一个方案</option>${list(career.searchPlans).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></label><button class="secondary" data-workflow="apply-plan">应用方案</button><button class="text-button danger" data-workflow="delete-plan">删除方案</button></div><form id="local-rules">${fields('hard','必须满足','明确不符合时单独标记；信息缺失先保留，方便之后核实。')}${fields('preferred','优先考虑','用于本次排序。某项未命中，不代表不值得继续了解。')}${fields('explore','愿意探索','记录你愿意尝试的城市、方向或业务，不会放宽上面的必要条件。')}<div class="button-row"><button class="primary" type="submit">应用本次条件</button><button type="button" class="secondary" data-workflow="reset-rules">从已保存偏好重新填写</button></div></form><div class="plan-row"><label>方案名称<input id="plan-name" maxlength="100" placeholder="例如：深圳 SaaS，先看产品方向"></label><button class="secondary" data-workflow="save-plan">保存为新方案</button></div><p class="hint">方案同时保存上方搜索条件和这里的本地条件。应用后由你决定是否搜索；不会改动“偏好与设置”。</p></details>`;
-  $('#search-form').closest('section').after(block);
-  block.querySelector('details').ontoggle=e=>{local.rulesOpen=e.target.open;remember()};
-  $('#local-rules').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{currentRules=readRules();delete local.ruleDraft;local.rulesOpen=false;remember();renderSearch();toast('已应用本次条件，未重新搜索')})};
- }
  const originalRenderJob=renderJob;
  renderJob=function(){
   capturePreparation();originalRenderJob();if(!activeJob)return;
   const j=savedJob(activeJob)||activeJob,k=jobDraftKey(j),root=$('#job-detail');
   const tabs=document.createElement('div');tabs.className='detail-tabs';tabs.innerHTML=[['job','岗位与条件'],['prepare','准备投递'],['follow','跟进与留档']].map(([id,label])=>`<button data-workflow="detail-tab" data-detail-tab="${id}">${label}</button>`).join('');root.querySelector('.detail-grid').before(tabs);
   const origin=document.createElement('p');origin.className='hint';origin.textContent='来源：'+(j.sourceLabel||(j.source==='boss'?'BOSS':'手动收录'));root.querySelector('h1').after(origin);
-  const assessment=JobRules.evaluate(j,currentRules),section=document.createElement('section');section.className='panel decision-panel';section.dataset.detailGroup='job';section.innerHTML=`<h2>我的考虑</h2><form id="decision-form"><label>现在怎么考虑这个岗位<select name="decision">${Object.entries(decisionName).map(([v,n])=>`<option value="${v}" ${(j.decision||'open')===v?'selected':''}>${n}</option>`).join('')}</select></label><label>原因（可选）<input name="reason" maxlength="2000" value="${esc(j.decisionReason||'')}" placeholder="例如：通勤偏远，先保留其他选择"></label><button type="submit" class="secondary">保存我的考虑</button></form><p class="hint">只影响你的取舍记录。招聘方的反馈另记，不会因此屏蔽整家公司。</p><details><summary>本次条件的判断依据</summary>${[['hard','必须满足'],['preferred','优先考虑'],['explore','愿意探索']].map(([g,n])=>`<h3>${n}</h3>${assessment[g].length?assessment[g].map(c=>`<p>${{match:'符合',mismatch:'不符',unknown:'待核实'}[c.status]} · ${esc(c.label)}：${esc(c.detail)}</p>`).join(''):'<p class="hint">本组未设置条件</p>'}`).join('')}</details>`;
+  const assessment=JobRules.evaluate(j,currentRules),section=document.createElement('section');section.className='panel decision-panel';section.dataset.detailGroup='job';section.innerHTML=`<h2>我的考虑</h2><form id="decision-form"><label>现在怎么考虑这个岗位<select name="decision">${Object.entries(decisionName).map(([v,n])=>`<option value="${v}" ${(j.decision||'open')===v?'selected':''}>${n}</option>`).join('')}</select></label><label>原因（可选）<input name="reason" maxlength="2000" value="${esc(j.decisionReason||'')}" placeholder="例如：通勤偏远，先保留其他选择"></label><button type="submit" class="secondary">保存我的考虑</button></form><p class="hint">只影响你的取舍记录。招聘方的反馈另记，不会因此屏蔽整家公司。</p><details><summary>已保存偏好的判断依据</summary>${[['preferred','优先考虑']].map(([g,n])=>`<h3>${n}</h3>${assessment[g].length?assessment[g].map(c=>`<p>${{match:'符合',mismatch:'不符',unknown:'待核实'}[c.status]} · ${esc(c.label)}：${esc(c.detail)}</p>`).join(''):'<p class="hint">本组未设置条件</p>'}`).join('')}</details>`;
   const grid=root.querySelector('.detail-grid');grid.before(section);
   const columns=[...grid.children];columns[0].querySelectorAll('section').forEach(s=>s.dataset.detailGroup='job');columns[1].querySelectorAll('section').forEach((s,i)=>s.dataset.detailGroup=i<2?'prepare':'follow');
   const tracking=$('#job-update-form');if(tracking){const follow=document.createElement('section');follow.className='panel workflow-follow-form';follow.dataset.detailGroup='follow';follow.innerHTML='<h2>跟进记录</h2>';follow.append(tracking);grid.append(follow);const applied=tracking.querySelector('option[value=applied]');if(applied&&j.status!=='applied')applied.disabled=true;}
@@ -116,19 +107,14 @@
  document.addEventListener('click',e=>{const b=e.target.closest('[data-workflow]');if(!b)return;busy(b,async()=>{const a=b.dataset.workflow;
   if(a==='open'){const host=b.closest('[data-workflow-jobs]');const job=career.jobs.find(j=>j.id===b.dataset.id)||host?._workflowJobs[Number(b.dataset.index)];return openJob(job)}
   if(a==='detail-tab'){setDetailTab(b.dataset.detailTab);dialog.scrollTop=0;return}
-  if(a==='save-plan'){captureViewDraft();currentRules=readRules();delete local.ruleDraft;const name=$('#plan-name').value.trim();const r=await api('/api/career/plan-save',{plan:{name,filters:searchValues,rules:currentRules}});career.searchPlans=r.searchPlans;local.rulesOpen=false;renderSearch();toast('方案已保存，下次可以直接选用');return}
-  if(a==='reset-rules'){currentRules=JobRules.normalize({preferred:career.preferences});delete local.ruleDraft;remember();renderSearch();return}
-  const id=$('#saved-plan')?.value,p=list(career.searchPlans).find(p=>p.id===id);if(!p)throw Error('请先选择一个已保存的方案。');
-  if(a==='apply-plan'){searchValues=structuredClone(p.filters);currentRules=JobRules.normalize(p.rules);delete local.ruleDraft;local.rulesOpen=false;remember();renderSearch();toast('方案已填入，搜索需要你再点击确认');return}
-  if(a==='delete-plan'&&await confirmAction('删除这个筛选方案？','只删除方案，已经保存的岗位和投递记录会保留。')){const r=await api('/api/career/plan-delete',{id});career.searchPlans=r.searchPlans;renderSearch()}
  });});
- document.addEventListener('input',e=>{if(e.target.closest('#local-rules')){local.ruleDraft=Object.fromEntries(new FormData($('#local-rules')));remember()}if(e.target.closest('#preparation-form,#submission-form')){capturePreparation();remember()}});
+ document.addEventListener('input',e=>{if(e.target.closest('#preparation-form,#submission-form')){capturePreparation();remember()}});
  document.addEventListener('scroll',e=>{if(e.target.id==='opportunity-list'||e.target===dialog)remember()},true);
  window.addEventListener('beforeunload',()=>{capturePreparation();remember()});
  window.addEventListener('resize',()=>{if(!activeJob||!$('#job-side'))return;if(innerWidth>1000){renderJob();placeDetail(false)}else if(dialog.classList.contains('inline-job')){dialog.close();dialog.classList.remove('inline-job');document.body.append(dialog)} });
  // Add explicit source selection without fetching the supplied URL.
- const f=$('#manual-form'),source=document.createElement('label');source.textContent='岗位来自哪里';source.innerHTML+=' <select name="sourceLabel"><option>招聘网站</option><option>BOSS</option><option>公司官网</option><option>朋友推荐</option><option>邮件</option><option>其他</option></select>';f.querySelector('.form-grid').prepend(source);
- const originalManual=manual;manual=function(job=null){originalManual(job);f.elements.sourceLabel.value=job?.sourceLabel||'招聘网站';$('#manual-note').textContent='粘贴职位描述或链接即可保存，公司、薪资和地点可以后补。工作台不会自动打开或抓取这个链接。';};
+ const f=$('#manual-form'),source=document.createElement('label');source.textContent='岗位来自哪里';source.innerHTML+=' <select name="sourceLabel"><option>BOSS直聘</option><option>智联招聘</option><option>前程无忧</option><option>猎聘</option><option>公司官网</option><option>学校资源</option><option>熟人内推</option><option>社交软件</option><option>其他</option></select>';f.querySelector('.form-grid').prepend(source);
+ const originalManual=manual;manual=function(job=null){originalManual(job);const select=f.elements.sourceLabel;select.querySelectorAll('[data-legacy]').forEach(o=>o.remove());const value=job?.sourceLabel||'BOSS直聘';if(![...select.options].some(o=>o.value===value)){const o=new Option(value+'（原记录）',value);o.dataset.legacy='true';select.add(o)}select.value=value;window.StudioUI?.sync();$('#manual-note').textContent='粘贴职位描述或链接即可保存，公司、薪资和地点可以后补。工作台不会自动打开或抓取这个链接。';};
  const originalSubmit=f.onsubmit;f.onsubmit=e=>{if(!f.elements.title.value.trim()&&!f.elements.description.value.trim()&&!f.elements.url.value.trim()){e.preventDefault();$('#manual-error').hidden=false;$('#manual-error').textContent='先粘贴职位描述或岗位链接，再保存。';return}editingJob={...(editingJob||{}),source:editingJob?.source||'manual',sourceLabel:f.elements.sourceLabel.value};return originalSubmit(e)};
  if($('#search-form')||$('#pipeline-filter'))render();
 })();

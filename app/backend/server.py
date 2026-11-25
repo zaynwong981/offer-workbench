@@ -364,6 +364,15 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/api/ai/config":
             try: return self.send(llm.Config(self.server.career.path.parent).public())
             except (ValueError,OSError): return self.send({"error":"AI配置无法读取，请检查本机配置文件。"},status=400)
+        if route == "/api/ai/exploration":
+            try:
+                version_id = parse_qs(urlparse(self.path).query).get('versionId', [''])[0]
+                with LOCK:
+                    state = json.loads(self.server.state_path.read_text(encoding='utf-8'))
+                    result = assistant.latest_exploration(self.server.career, version_id, state)
+                return self.send(result)
+            except (ValueError, KeyError, TypeError) as error:
+                return self.send({'error': str(error)}, status=400)
         if route == "/api/boss/status":
             return self.send(self.server.boss.status())
         if route in {"/api/career/state", "/api/career/backup", "/api/career/calendar.ics", "/api/career/assist-state"}:
