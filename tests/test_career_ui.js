@@ -322,7 +322,7 @@ test('search authentication errors keep usable recovery actions and do not retry
   await h.submit('search-form');
   assert.match(h.node('content').innerHTML, /请先登录专用浏览器/);
   assert.match(h.node('content').innerHTML, /查看排障指南/);
-  assert.match(h.node('content').innerHTML, /先手动添加 JD/);
+  assert.match(h.node('content').innerHTML, /先手动添加岗位详情/);
   assert.equal(h.run('searchPending'), false);
   assert.equal(h.run('searchCompleted'), false);
   assert.equal(h.calls.filter(c => c.url === '/api/boss/search').length, 1);

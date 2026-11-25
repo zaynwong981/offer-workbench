@@ -39,3 +39,6 @@ __pycache__/
 **/置顶评论.txt
 **/文案说明.md
 **/小红书*/
+
+brand.local.json
+docs/brand/

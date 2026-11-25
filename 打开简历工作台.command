@@ -15,5 +15,5 @@ if ! "$runtime_python" -c 'import reportlab, PIL' 2>/dev/null; then
   exit 1
 fi
 nohup "$runtime_python" "$studio_dir/server.py" --open >> "$studio_dir/server.log" 2>&1 &
-print 'OfferWorkbench 已启动：http://127.0.0.1:8766/career'
+print 'OfferWorkbench 已启动：http://127.0.0.1:8766/'
 print '浏览器将自动打开；此窗口可以关闭。'

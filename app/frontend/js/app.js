@@ -208,7 +208,7 @@ function bulletEditors(path) {
         ${actionButton("move", "↓", path, `data-index="${i}" data-step="1" aria-label="下移描述" ${i === pathValue(path).length - 1 ? "disabled" : ""}`)}
         ${actionButton("remove", "删除", path, `data-index="${i}"`)}
       </div>
-      <label class="bullet-body">详情描述<textarea aria-label="${escapeHtml(item.label || "描述正文")}" data-path="${attrPath([...path, i, "text"])}" rows="3">${escapeHtml(item.text)}</textarea></label>
+      <label class="bullet-body">详情描述<textarea aria-label="${escapeHtml(item.label || "描述正文")}" data-path="${attrPath([...path, i, "text"])}" rows="3">${escapeHtml(item.text)}</textarea></label><div class="bullet-ai"><button class="ai-polish-button" data-ai-required data-ai-path="${attrPath([...path,i])}" type="button">AI润色</button></div>
     </div>`).join("") + `<button class="add-button" data-action="add-bullet" data-list="${attrPath(path)}">＋ 添加描述</button>`;
 }
 
@@ -238,6 +238,7 @@ function renderNav() {
 }
 
 function renderEditor() {
+  if(window.WorkbenchAI)setTimeout(()=>WorkbenchAI.refresh().catch(()=>{}),0);
   const version = activeVersion();
   activeId = version.id;
   syncActiveVersion();
@@ -279,7 +280,7 @@ function renderEditor() {
         ${field("版本名称（用于管理及文件名）", [...path, "name"])}
         ${field("求职方向", [...path, "target"])}
         <div class="layout-settings"><label>用途<select data-path="${attrPath([...path,"kind"])}"><option value="master" ${(version.kind||(version.tailoredFor?'job':'master'))==='master'?'selected':''}>方向母版</option><option value="job" ${(version.kind||(version.tailoredFor?'job':'master'))==='job'?'selected':''}>岗位草稿</option></select></label>${check("归档此版本（不出现在默认列表和批量导出中）",[...path,"archived"])}</div>
-        <button type="button" id="open-assistant" class="secondary">保存并用素材与AI准备</button>
+        <button type="button" id="open-assistant" class="secondary">经历素材库</button>
         ${check("在 PDF 顶部显示求职方向", [...path, "showTarget"])}
         <div class="layout-settings">
           <label>正文字号 <select data-path="${attrPath([...path, "fontSize"])}" data-number="true">${[9,9.5,10,10.5,11,11.5,12].map(n => `<option value="${n}" ${n === version.fontSize ? "selected" : ""}>${n} pt</option>`).join("")}</select></label>
@@ -290,7 +291,7 @@ function renderEditor() {
       </div>
       <div class="card"><div class="card-header">${titleField([...path, "summaryTitle"])}</div>${bulletEditors([...path, "summary"])}</div>
       <div class="card"><div class="card-header">${titleField([...path, "workTitle"])}</div>${entryEditors([...path, "experience"])}<button class="add-button" data-action="add-experience" data-list="${attrPath([...path, "experience"])}">＋ 添加工作／项目经历</button></div>`;
-    $("#open-assistant").onclick = async () => { if(!await save())return;location.href='/career?assistVersion='+encodeURIComponent(activeId)+'#materials'; };
+    $("#open-assistant").onclick = async () => { if(!await save())return;await AssistantUI.open({api:WorkbenchAI.api,esc:escapeHtml,resumes:state,toast,confirm:WorkbenchAI.confirm}); };
     $("#duplicate").onclick = duplicateVersion;
     $("#delete-version").onclick = deleteVersion;
   }
@@ -596,4 +597,16 @@ async function start() {
 lockEditor(true);
 if($("#version-search")) $("#version-search").oninput=renderNav;
 if($("#version-filter")) $("#version-filter").onchange=renderNav;
+$("#editor").addEventListener('click',async event=>{
+ const b=event.target.closest('[data-ai-path]');if(!b||!window.WorkbenchAI||!readyToEdit())return;
+ const path=JSON.parse(b.dataset.aiPath);if(!await save())return;
+ const versionId=path[0]==='versions'?state.versions[path[1]].id:activeId;
+ const target={versionId,path:path[0]==='versions'?path.slice(2):path};
+ await WorkbenchAI.polish({target,original:pathValue(path).text,beforeApply:save,onApplied:async()=>{
+  if(editSequence!==savedSequence){toast('建议已保存，请先保存当前编辑后刷新查看');return}
+  const sequence=editSequence;const latest=await WorkbenchAI.api('/api/state');
+  if(editSequence!==sequence){toast('建议已保存；当前编辑已保留，请核对后再保存');return}
+  state=latest;renderEditor();refreshPreview();
+ }});
+});
 start();

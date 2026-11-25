@@ -255,7 +255,7 @@ def compare_job(job, preferences, resume_state, rejected_companies=()):
             check(label, "match" if hit else "unknown", "命中：" + "、".join(hit) if hit else "公开信息未直接命中，需进一步核实。")
     warnings = []
     if not job.get("description"):
-        warnings.append("尚无完整 JD，仅按岗位名称比较；请补充职责与要求。")
+        warnings.append("尚无完整岗位详情，仅按岗位名称比较；请补充职责与要求。")
     if not selected:
         warnings.append("未识别可比较的技能词，不生成分数。可在偏好中补充该岗位的关键词。")
     mismatch = any(item["status"] == "mismatch" for item in checks)
