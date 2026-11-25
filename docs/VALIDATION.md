@@ -13,7 +13,16 @@
 
 求职备份v4兼容导入v1～3，恢复AI草稿仅供参考；密钥不入普通备份与停机快照。采纳和撤销的跨文件写入先登记意图，中断后只核对恢复状态，不覆盖后续修改。真实服务商权限、额度、地区与连通性留用户手测。规则匹配不预测录用，JD统计仅限所选样本。演示GIF／MP4按要求保留v0.7.0，1.0.0再更新。
 
-发布、正式服务升级与飞书批注证据将在完成后追加，不以本地通过代替远程结果。
+发布、正式服务升级与飞书批注的实际证据见下文。
+
+## 0.8.0 发布读回
+
+- [PR #9](https://github.com/zaynwong981/offer-workbench/pull/9)已合并；[分支CI](https://github.com/zaynwong981/offer-workbench/actions/runs/45534308831)与[PR CI](https://github.com/zaynwong981/offer-workbench/actions/runs/45534316222)六组均通过。
+- [Release复验](https://github.com/zaynwong981/offer-workbench/actions/runs/45534498454)三系统及发布成功；[v0.8.0](https://github.com/zaynwong981/offer-workbench/releases/tag/v0.8.0)签注标签对应`ed5b83eb10171b5edbae0a6374d650c996aaf0b4`。
+- 下载源码包SHA-256：`a1b52755d3e52215333e83cbf631db3c58511478b6797c2ae5ef2f9f5870a6e9`；125文件与标签逐一一致。
+- 正式服务已停机快照后升级；简历与配置逐字节、SQLite所有原表逐行、原有PDF逐文件校验一致，导出目录保留。快照在新目录恢复且全部哈希通过；新增素材与草稿为空，AI默认关闭，未迁入合成测试数据。
+- 飞书第7节追加七条完成批注，逐次最新读取／局部写入／读回验证；原文、图片和历史批注均保留。真实模型账号连通性明确留用户手测。
+- 本段是发布后证据补记，不覆盖v0.8.0标签和下载附件。
 
 ---
 
