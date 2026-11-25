@@ -405,7 +405,7 @@ class Handler(BaseHTTPRequestHandler):
         static["/job-workflow.css"] = ("app/frontend/css/job-workflow.css", "text/css; charset=utf-8")
         static["/workspace-layout.js"] = ("app/frontend/js/workspace-layout.js", "text/javascript; charset=utf-8")
         static["/site-info.js"] = ("app/frontend/js/site-info.js", "text/javascript; charset=utf-8")
-        for name,folder,mime in [("assistant-ui.js","js","text/javascript"),("inline-ai.js","js","text/javascript"),("assistant.css","css","text/css"),("brand.css","css","text/css")]:
+        for name,folder,mime in [("ai-analysis.js","js","text/javascript"),("assistant-ui.js","js","text/javascript"),("inline-ai.js","js","text/javascript"),("assistant.css","css","text/css"),("brand.css","css","text/css")]:
             static["/"+name] = ("app/frontend/"+folder+"/"+name,mime+"; charset=utf-8")
         if route.startswith('/brand/'):
             names={'wordmark.svg':'image/svg+xml','mark-blue.svg':'image/svg+xml','favicon.ico':'image/x-icon'}

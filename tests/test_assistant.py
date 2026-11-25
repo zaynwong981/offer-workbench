@@ -68,11 +68,11 @@ class AssistantTests(unittest.TestCase):
 
     def test_explore_excludes_profile_and_checks_quotes(self):
         quote=self.state['versions'][0]['summary'][0]['text']
-        with patch.object(llm,'call',return_value=(json.dumps({'items':[{'text':'可探索企业服务产品','quote':quote,'materialId':''}]}),{})) as remote:
+        with patch.object(llm,'call',return_value=(json.dumps({'directions':[{'industry':'企业服务','role':'产品经理','keywords':['SaaS产品经理'],'reason':'可探索企业服务产品','quote':quote}]}),{})) as remote:
             d=assistant.run(self.store,{'task':'explore','versionId':'saas'},self.state)
             request=json.dumps(remote.call_args.args[1]);self.assertNotIn('private-contact',request);self.assertNotIn('photo',request)
         self.assertEqual(d['status'],'ready')
-        with patch.object(llm,'call',return_value=(json.dumps({'items':[{'text':'推荐','quote':'不存在的经历','materialId':''}]}),{})):
+        with patch.object(llm,'call',return_value=(json.dumps({'directions':[{'industry':'企业服务','role':'产品经理','keywords':['SaaS产品经理'],'reason':'推荐','quote':'不存在的经历'}]}),{})):
             d=assistant.run(self.store,{'task':'explore','versionId':'saas'},self.state)
         self.assertEqual(d['status'],'failed')
 
@@ -149,8 +149,47 @@ class AssistantTests(unittest.TestCase):
         self.assertEqual(next(i for i in r['items'] if i['term']=='ERP')['evidence'][0]['quote'],'负责ERP')
     def test_jd_extraction_and_recommendation_require_verbatim_evidence(self):
         j=self.call('upsert',job={'description':'负责需求分析。熟悉ERP。'})['job'];m=self.material()
-        for task,result in [('extract',{'items':[{'text':'需要需求分析','quote':'负责需求分析','materialId':''}]}),('recommend',{'items':[{'text':'该经历与需求分析相关','quote':m['body'],'materialId':m['id']}]})]:
+        for task,result in [('extract',{'groups':[{'category':'能力','tags':[{'label':'需求分析','quote':'负责需求分析'}]}],'profile':{'text':'需要需求分析经验','quotes':['负责需求分析']}}),('recommend',{'items':[{'text':'该经历与需求分析相关','quote':m['body'],'materialId':m['id']}]})]:
             d=self.generate(self.preview(task,jobId=j['id'],materialIds=[m['id']]),result);self.assertEqual(d['status'],'ready')
+    def test_structured_analysis_backup_and_bad_evidence_are_atomic(self):
+        job=self.call('upsert',job={'title':'产品经理','description':'本科及以上，计算机专业优先。负责需求分析。'})['job']
+        result={'groups':[{'category':'学历','tags':[{'label':'本科及以上','quote':'本科及以上'}]},
+                          {'category':'专业','tags':[{'label':'计算机专业优先','quote':'计算机专业优先'}]}],
+                'profile':{'text':'本科及以上、计算机专业优先的产品候选人。','quotes':['本科及以上，计算机专业优先']},'questions':['不应显示']}
+        draft=self.generate(self.preview('extract',jobId=job['id']),result)
+        self.assertEqual(draft['status'],'ready');self.assertNotIn('questions',draft['result'])
+        self.assertEqual(draft['result']['groups'][1]['tags'][0]['label'],'计算机专业优先')
+        backup=self.call('backup');self.call('import',backup=backup)
+        self.assertEqual(self.call('assist-state')['aiDrafts'][0]['result'],draft['result'])
+        before=self.call('assist-state');bad=copy.deepcopy(backup)
+        bad['aiDrafts'][0]['result']['groups'][0]['tags'][0]['quote']='硕士必须'
+        with self.assertRaises(ValueError):self.call('import',backup=bad)
+        self.assertEqual(self.call('assist-state'),before)
+        for patch in ({'groups':[]},{'profile':{'text':'博士优先','quotes':['博士优先']}}):
+            d=self.generate(self.preview('extract',jobId=job['id']),{**result,**patch});self.assertEqual(d['status'],'failed')
+
+    def test_legacy_analysis_draft_remains_readable(self):
+        job=self.call('upsert',job={'title':'产品','description':'负责需求分析。'})['job']
+        d=self.preview('extract',jobId=job['id'])
+        d.pop('analysisVersion')
+        result=assistant.parse_result(json.dumps({'items':[{'text':'需要需求分析','quote':'负责需求分析'}]}),d)
+        self.assertEqual(result['items'][0]['quote'],'负责需求分析')
+        with self.store._db() as db:
+            stored=assistant.get(db,'ai_drafts',d['id']);stored.pop('analysisVersion');stored['result']=result;stored['status']='ready';assistant.put(db,'ai_drafts',stored)
+        self.call('import',backup=self.call('backup'))
+        self.assertEqual(self.call('assist-state')['aiDrafts'][0]['result'],result)
+
+    def test_exploration_keywords_and_profile_privacy_survive_backup(self):
+        quote=self.state['versions'][0]['summary'][0]['text']
+        result={'directions':[{'industry':'软件服务','role':'产品经理','keywords':['AI产品经理','产品经理','AI产品经理'],'reason':'有需求分析经验','quote':quote}],'questions':['不应显示']}
+        d=self.generate(self.preview('explore',versionId='saas'),result)
+        self.assertEqual(d['status'],'ready');self.assertNotIn('questions',d['result'])
+        self.assertEqual(d['result']['directions'][0]['keywords'],['AI产品经理','产品经理'])
+        self.call('import',backup=self.call('backup'))
+        self.assertEqual(self.call('assist-state')['aiDrafts'][0]['result'],d['result'])
+        result['directions'][0]['keywords']=[{'bad':'format'}]
+        d=self.generate(self.preview('explore',versionId='saas'),result);self.assertEqual(d['status'],'failed')
+
     def test_500_versions_and_readable_font_floor(self):
         base=self.state['versions'][0];self.state['versions']=[{**copy.deepcopy(base),'id':str(i)} for i in range(31)];validate_state(self.state)
         v=self.state['versions'][0];v['fontSize']=11;v['minFontSize']=10.5;v['summary']=[{'label':'合成说明','text':'需求分析与产品验收。'*600}]

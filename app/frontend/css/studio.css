@@ -14,6 +14,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei
 .topbar .help-link{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;height:34px;padding:0 11px;background:white;color:#354965;font-size:12px;white-space:nowrap;text-decoration:none}
 .topbar .help-link:hover{background:#edf3ff;border-color:#b3c9f0}
 button,.help-link{transition:background .15s,border-color .15s,box-shadow .15s}button:active:not(:disabled){filter:brightness(.96)}
+/* Disabled is a state, not a pending request. */
+button:disabled{cursor:default}
+button[aria-busy="true"]{cursor:progress}
+.button-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.button-row>:is(button,a){display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1.4;min-height:38px;padding:8px 12px}
+.button-row>a{border:1px solid transparent;border-radius:6px;text-decoration:none}
+.button-row>a:hover{background:#edf3ff}
 a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid #245bcc;outline-offset:2px}
 input:focus-visible,textarea:focus-visible{outline:2px solid #245bcc;outline-offset:1px}
 .shell{grid-template-columns:var(--rail-width) minmax(0,1fr);min-height:calc(100vh - var(--nav-height));align-items:start}
